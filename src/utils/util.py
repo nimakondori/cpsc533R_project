@@ -1,5 +1,4 @@
 # import torch
-import getpass
 import logging
 import os
 import yaml
@@ -7,6 +6,7 @@ import argparse
 from colorlog import ColoredFormatter
 from typing import Dict, Any
 from distutils.util import strtobool
+import matplotlib.pyplot as plt
 
 
 # Logging
@@ -154,3 +154,30 @@ def to_device(dict, device):
     for key in dict.keys():
         dict[key] = dict[key].to(device)
     return dict
+
+def visualize_LVID(batch, 
+                      ):
+    fig = plt.figure()
+    ax = fig.add_subplot(1,2,1)
+    x = batch["x"]
+    y = batch["y"]
+    ax.imshow(x[0].squeeze().squeeze())
+    ax.plot(y[0, 0, 1] - 1, y[0, 0, 0] - 1, marker='o', color='r', markersize=5)
+    ax.plot(y[0, 1, 1] - 1, y[0, 1, 0] - 1, marker='o', color='r', markersize=5)
+    ax.plot(y[0, 2, 1] - 1, y[0, 2, 0] - 1, marker='o', color='w', markersize=5)
+    ax.plot(y[0, 3, 1] - 1, y[0, 3, 0] - 1, marker='o', color='b', markersize=5)
+
+    fig.show()
+
+def visualize_LVOT(batch, 
+                      ):
+    fig = plt.figure()
+    ax = fig.add_subplot(1,2,1)
+    x = batch["x"]
+    y = batch["y"]
+    ax.imshow(x[0].squeeze())
+    ax.plot(y[0, 0] - 1, y[0, 1] - 1, marker='o', color='r', markersize=5)
+    ax.plot(y[0, 2] - 1, y[0, 3] - 1, marker='o', color='r', markersize=5)
+
+    fig.show()
+

@@ -1,5 +1,5 @@
 import torch
-from src.utils import util
+from src.utils.util import visualize_LVID, visualize_LVOT
 from src.builders import  dataloader_builder, dataset_builder
 import wandb
 from tqdm import tqdm
@@ -73,6 +73,9 @@ class Engine(BaseEngine):
         LVID_smaple_batch = next(lvid_train_iter)
         LVOT_smaple_batch = next(lvot_train_iter)
 
+        # TODO: Find out why batch size doesn't work as expected
+        visualize_LVID(LVID_smaple_batch) 
+        visualize_LVOT(LVOT_smaple_batch) 
         
 
         
