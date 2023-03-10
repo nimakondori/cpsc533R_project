@@ -19,154 +19,6 @@ from torchvision.transforms.functional import hflip
 NUM_PREFETCH = 10
 RANDOM_SEED = 7
 
-
-class LVOTLandmark(Dataset, ABC):
-    def __init__(self, dataset_path, img_res, augment, deploy):
-        self.dataset_path = dataset_path
-        self.img_res = tuple(img_res)
-        self.augment = augment
-
-        df_train = pd.read_csv(os.path.join(self.dataset_path,
-                                            'LVOT_train_extra_info_refined_based_on_landmark_presence.csv'))
-        df_valid = pd.read_csv(os.path.join(self.dataset_path,
-                                            'LVOT_val_extra_info_refined_based_on_landmark_presence.csv'))
-        df_test = pd.read_csv(os.path.join(self.dataset_path,
-                                           'LVOT_test_extra_info_refined_based_on_landmark_presence.csv'))
-
-        train_paths = df_train['Path'].tolist()
-        valid_paths = df_valid['Path'].tolist()
-        test_paths = df_test['Path'].tolist()
-
-        train_paths = [os.path.join(self.dataset_path, 'LVOT_cleaned', path.split('\\')[-1]) for path in train_paths]
-        valid_paths = [os.path.join(self.dataset_path, 'LVOT_cleaned', path.split('\\')[-1]) for path in valid_paths]
-        test_paths = [os.path.join(self.dataset_path, 'LVOT_cleaned', path.split('\\')[-1]) for path in test_paths]
-
-        train_pixel_x = df_train['PhysicalDeltaX'].tolist()
-        valid_pixel_x = df_valid['PhysicalDeltaX'].tolist()
-        test_pixel_x = df_test['PhysicalDeltaX'].tolist()
-
-        train_pixel_y = df_train['PhysicalDeltaY'].tolist()
-        valid_pixel_y  = df_valid['PhysicalDeltaY'].tolist()
-        test_pixel_y  = df_test['PhysicalDeltaY'].tolist()
-
-        self.train_patients = list(zip(train_paths, train_pixel_x, train_pixel_y))
-        self.valid_patients = list(zip(valid_paths, valid_pixel_x, valid_pixel_y))
-        self.test_patients = list(zip(test_paths, test_pixel_x, test_pixel_y))
-
-        print('#train:', len(self.train_patients))
-        print('#valid:', len(self.valid_patients))
-        print('#test:', len(self.test_patients))
-        print('Consistency check - First valid sample:', self.valid_patients[0])
-        print('Consistency check - First test sample:', self.test_patients[0])
-
-        # data augmentation configuration
-        data_gen_args = dict(rotation_range=augment['AUG_ROTATION_RANGE_DEGREES'],
-                             width_shift_range=augment['AUG_WIDTH_SHIFT_RANGE_RATIO'],
-                             height_shift_range=augment['AUG_HEIGHT_SHIFT_RANGE_RATIO'],
-                             shear_range=augment['AUG_SHEAR_RANGE_ANGLE'],
-                             zoom_range=augment['AUG_ZOOM_RANGE_RATIO'],
-                             fill_mode='constant',
-                             cval=0.,
-                             data_format='channels_last')
-        self.datagen = ImageDataGenerator(**data_gen_args)
-
-    def _get_paths(self, stage):
-        if stage == 'train':
-            return self.train_patients
-        elif stage == 'valid':
-            return self.valid_patients
-        elif stage == 'test':
-            return self.test_patients
-
-    @staticmethod
-    def gamma_corr(imgs, Gamma_Range):
-        flag = 0
-        if np.max(imgs) > 1:
-            imgs = imgs / 255.0
-            flag = 1
-        gamma = random.uniform(Gamma_Range[0], Gamma_Range[1])
-        imgs = np.power(imgs, gamma)
-        if flag:
-            imgs = imgs * 255
-            imgs = imgs.astype(np.uint8)
-        return imgs
-
-    @staticmethod
-    def randomCrop(imgs, max_width, max_height):
-        width = random.randint(0, np.int(max_width))
-        height = random.randint(0, np.int(max_height))
-        x = random.randint(0, imgs.shape[1] - width)
-        y = random.randint(0, imgs.shape[0] - height)
-        imgs[y:y + height, x:x + width, :] = 0
-        return imgs
-
-    # multithreading data loading
-    # @background(max_prefetch=NUM_PREFETCH)
-    def get_random_batch(self, batch_size=1, stage='train'):
-        paths = self._get_paths(stage)
-        num = len(paths)
-        num_batches = num // batch_size
-        for i in range(num_batches):
-            batch_paths = random.sample(paths, batch_size)
-            imgs, gt, patient_paths = self._get_batch(batch_paths, stage)
-            yield imgs, gt, patient_paths
-
-    def get_iterative_batch(self, batch_size=1, stage='test'):
-        paths = self._get_paths(stage)
-        num = len(paths)
-        num_batches = num // batch_size
-        start_idx = 0
-        for i in range(num_batches):
-            batch_paths = paths[start_idx:start_idx + batch_size]
-            imgs, gt, patient_paths = self._get_batch(batch_paths, stage)
-            start_idx += batch_size
-            yield imgs, gt, patient_paths
-
-    def _get_batch(self, paths_batch, stage):
-        imgs = []
-        gts = []
-        paths = []
-        for path in paths_batch:
-
-            # load matfiles
-            mat_contents = sio.loadmat(path[0])
-            cine = mat_contents['cine']
-            img_LVOT = cine[:,:,mat_contents['lvot_frame'][0][0]-1]
-            img_LVOT = cv2.resize(img_LVOT, (self.img_res[0], self.img_res[1]))
-
-            LVOT_coordinate = mat_contents['lvot_label'][0]
-            gt_LVOT = np.zeros([cine.shape[0],cine.shape[1]])
-            gt_LVOT =  cv2.circle(gt_LVOT, (LVOT_coordinate[0]-1, LVOT_coordinate[1]-1), self.heatmap_radius, 1, -1)
-            gt_LVOT =  cv2.circle(gt_LVOT, (LVOT_coordinate[2]-1, LVOT_coordinate[3]-1), self.heatmap_radius, 1, -1)
-            gt_LVOT =  cv2.resize(gt_LVOT, (self.img_res[0], self.img_res[1]))
-
-            img_LVOT = img_LVOT[:, :, np.newaxis]
-            gt_LVOT = gt_LVOT[:, :, np.newaxis]
-
-            if stage == 'train':
-                # if in training stage => augment the dataset by transform, crop, gamma correction
-                transform = self.datagen.get_random_transform(img_shape=self.img_res)
-                img_LVOT = self.datagen.apply_transform(img_LVOT, transform)
-                img_LVOT = self.gamma_corr(img_LVOT, self.augment['AUG_GAMMA'])
-                img_LVOT = self.randomCrop(img_LVOT, img_LVOT.shape[1] / 4.0, img_LVOT.shape[0] / 4.0)
-                gt_LVOT = self.datagen.apply_transform(gt_LVOT, transform)
-
-            # round ground truth to be 0 or 1
-            gt_LVOT = np.round(gt_LVOT)
-
-            # create a list of data in the batch
-            imgs.append(img_LVOT)
-            gts.append(gt_LVOT)
-            paths.append(path)
-
-        # convert data to numpy array and float64 for training, normalize images and labels to be between 0 and 1
-        imgs = np.array(imgs)
-        gts = np.array(gts)
-        imgs = imgs.astype('float64')
-        gts = gts.astype('float64')
-        imgs = imgs / 255.0
-        return imgs, gts , paths
-
 class LVIDLandmark(Dataset, ABC):
     def __init__(self,
                  data_dir,
@@ -278,7 +130,7 @@ class LVIDLandmark(Dataset, ABC):
     
 
 
-class LVOTLandmark2(Dataset, ABC):
+class LVOTLandmark(Dataset, ABC):
     def __init__(self, 
                  data_dir,
                  metadata_dir,
@@ -328,7 +180,10 @@ class LVOTLandmark2(Dataset, ABC):
         img_LVOT = cv2.resize(img_LVOT, (self.frame_size, self.frame_size))
 
         LVOT_coordinate = mat_contents['lvot_label'][0]
+        # cv2.circle uses numpy arrays, so our initial data is of type np
         gt_LVOT = np.zeros([cine.shape[0],cine.shape[1]])
+
+        # Add heatmap circles at the ground truth locations
         gt_LVOT =  cv2.circle(gt_LVOT, (LVOT_coordinate[0]-1, LVOT_coordinate[1]-1), self.heatmap_radius, 1, -1)
         gt_LVOT =  cv2.circle(gt_LVOT, (LVOT_coordinate[2]-1, LVOT_coordinate[3]-1), self.heatmap_radius, 1, -1)
         gt_LVOT =  cv2.resize(gt_LVOT, (self.frame_size, self.frame_size))

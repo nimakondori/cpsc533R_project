@@ -146,3 +146,6 @@ data/
 
 # saved files
 saved_files/
+
+# idea folder
+.idea
