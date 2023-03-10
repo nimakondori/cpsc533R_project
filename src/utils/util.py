@@ -158,26 +158,41 @@ def to_device(dict, device):
 def visualize_LVID(batch, 
                       ):
     fig = plt.figure()
-    ax = fig.add_subplot(1,2,1)
+    axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
     x = batch["x"]
     y = batch["y"]
-    ax.imshow(x[0].squeeze().squeeze())
-    ax.plot(y[0, 0, 1] - 1, y[0, 0, 0] - 1, marker='o', color='r', markersize=5)
-    ax.plot(y[0, 1, 1] - 1, y[0, 1, 0] - 1, marker='o', color='r', markersize=5)
-    ax.plot(y[0, 2, 1] - 1, y[0, 2, 0] - 1, marker='o', color='w', markersize=5)
-    ax.plot(y[0, 3, 1] - 1, y[0, 3, 0] - 1, marker='o', color='b', markersize=5)
+    for i in range(len(x)):
+        axes[i].imshow(x[i].squeeze().squeeze())
+        axes[i].set_title(f"LVID Sample {i+1}")
+        axes[i].plot(y[i, 0, 1] - 1, y[i, 0, 0] - 1, marker='o', color='r', markersize=5)
+        axes[i].plot(y[i, 1, 1] - 1, y[i, 1, 0] - 1, marker='o', color='r', markersize=5)
+        axes[i].plot(y[i, 2, 1] - 1, y[i, 2, 0] - 1, marker='o', color='w', markersize=5)
+        axes[i].plot(y[i, 3, 1] - 1, y[i, 3, 0] - 1, marker='o', color='b', markersize=5)
 
     fig.show()
 
 def visualize_LVOT(batch, 
                       ):
     fig = plt.figure()
-    ax = fig.add_subplot(1,2,1)
+    axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
     x = batch["x"]
     y = batch["y"]
-    ax.imshow(x[0].squeeze())
-    ax.plot(y[0, 0] - 1, y[0, 1] - 1, marker='o', color='r', markersize=5)
-    ax.plot(y[0, 2] - 1, y[0, 3] - 1, marker='o', color='r', markersize=5)
+    for i in range(len(x)):
+        axes[i].imshow(x[i].squeeze())
+        axes[i].set_title(f"LVOT Sample {i+1}")
+        axes[i].plot(y[i, 0] - 1, y[i, 1] - 1, marker='o', color='r', markersize=5)
+        axes[i].plot(y[i, 2] - 1, y[i, 3] - 1, marker='o', color='r', markersize=5)
+
+    fig.show()
+
+def visualize_LVOT_gt(batch, 
+                      ):
+    fig = plt.figure()
+    axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
+    x = batch["gt_LVOT"]
+    for i in range(len(x)):
+        axes[i].imshow(x[i].squeeze())
+        axes[i].set_title(f"LVOT Heatmap {i+1}")
 
     fig.show()
 
