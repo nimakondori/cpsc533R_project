@@ -1,7 +1,55 @@
 train: 
   seed: 200
-  batch_size: 2
+  batch_size: 3
   num_workers: 0
+  use_wandb: False
+  wand_project_name: multi_transformer
+  wandb_mode: online
+  wandb_run_name: "RUN NAME"
+
+  lr_schedule: 
+    name: "reduce_lr_on_plateau"
+    mode: 'min'
+    factor: 0.5  # Factor by which the learning rate will be reduced
+    patience: 2 # Number of epochs with no improvement after which learning rate will be reduced
+    threshold: 0.01  # Threshold for measuring the new optimum, to only focus on significant changes
+    min_lr: 0.000001  # 1e-6
+    verbose: True
+
+  optimizer: 
+    name: adam
+    lr: 0.001  # 1e-3
+    weight_decay: 0.0001  # 1e-4
+
+  criterion:
+    WeightedBceWithLogits:
+      loss_weight: 1
+      reduction: none
+      ones_weight: 9000  # 9000 for 224x224 and 7 aux graphs.  3300 for 128x128 and 6 aux graphs
+    ExpectedLandmarkMse:
+      loss_weight: 1
+
+model:
+  checkpoint_path: ""
+  embedder:
+    name: cnn
+    out_channels: [4]  # 4 for 224x224,   8 for 128x128
+    cnn_dropout_p: 0.1
+    pool_sizes: [1]
+    kernel_sizes: [3]
+  landmark:
+    name: umtt
+    # Add the other configs here
+
+eval:
+  # TODO: Check the evals
+  # Report these metrics
+  standards: [ "balancedaccuracy"]
+  # Save checkpoints based on this metric
+  standard: "balancedaccuracy"
+  # Save checkpoints based on whether the metric is to be maximized or minimized
+  minimize: False
+
 
 data: 
   - dataset:

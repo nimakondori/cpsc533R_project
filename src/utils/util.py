@@ -155,6 +155,18 @@ def to_device(dict, device):
         dict[key] = dict[key].to(device)
     return dict
 
+
+def reset_evaluators(evaluators):
+    """
+    Calls the reset() method of evaluators in input dict
+
+    :param evaluators: dict, dictionary of evaluators
+    """
+
+    for evaluator in evaluators.keys():
+        evaluators[evaluator].reset()
+
+
 def visualize_LVID(batch, 
                       ):
     fig = plt.figure()

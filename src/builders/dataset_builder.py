@@ -29,10 +29,10 @@ def build(data_config, logger):
         for mode in ['train', 'val', 'test']:
             transform = compose_transforms(transform_config)
             datasets[dataset_name][mode] = DATASETS[dataset_name](**config,
-                                                            mode=mode,
-                                                            logger=logger,
-                                                            transform=transform,
-                                                            frame_size=transform_config['image_size'])
+                                                                  mode=mode,
+                                                                  logger=logger,
+                                                                  transform=transform,
+                                                                  frame_size=transform_config['image_size'])
 
     return datasets
 
