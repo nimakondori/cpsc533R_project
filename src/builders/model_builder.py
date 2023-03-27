@@ -1,10 +1,10 @@
-from src.core.models import UMMT, CNN
+from src.core.models import UMMT, CNN_Basic
 from copy import deepcopy
 
 
 MODELS = {
     'umtt': UMMT,
-    'cnn': CNN
+    'cnn_basic': CNN_Basic,
 }
 
 
