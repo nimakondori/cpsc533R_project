@@ -17,6 +17,8 @@ def main():
 
     engine = Engine(config=config, logger=logger, save_dir=save_dir)
 
+    
+
     if config['eval_only']:
         engine.evaluate(data_type=config['eval_data_type'])
     else:
