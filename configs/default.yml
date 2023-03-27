@@ -22,12 +22,10 @@ train:
     weight_decay: 0.0001  # 1e-4
 
   criterion:
-    WeightedBceWithLogits:
-      loss_weight: 1
-      reduction: none
-      ones_weight: 9000  # 9000 for 224x224 and 7 aux graphs.  3300 for 128x128 and 6 aux graphs
-    ExpectedLandmarkMse:
-      loss_weight: 1
+    mae:
+      loss_weight: 1 # Coefficient in weighted loss calculation
+    # mse: 
+    #   loss_weight: 1
 
 model:
   checkpoint_path: ""
@@ -39,14 +37,21 @@ model:
     kernel_sizes: [3]
   landmark:
     name: umtt
-    # Add the other configs here
+    image_size: 224
+    patch_size: 16
+    num_landmarks: 2
+    hidden_dim: 768
+    num_heads: 12
+    num_layers: 12
+    dropout: 0.1
+
 
 eval:
   # TODO: Check the evals
   # Report these metrics
-  standards: [ "balancedaccuracy"]
+  standards: [ "mse"]
   # Save checkpoints based on this metric
-  standard: "balancedaccuracy"
+  standard: "mse"
   # Save checkpoints based on whether the metric is to be maximized or minimized
   minimize: False
 

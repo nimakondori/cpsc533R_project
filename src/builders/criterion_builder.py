@@ -4,7 +4,9 @@ from copy import deepcopy
 
 
 CRITERIA = {
+    #L2 loss
     'mse': MSE,  # loss for coordinates
+    # L1 loss
     'mae': MAE,  # loss for coordinates
     'bce': WeightedBCE,  # per-pixel loss for heatmaps
     'HeatmapMse': HeatmapMSELoss,  # per-pixel loss for heatmaps
@@ -14,12 +16,9 @@ CRITERIA = {
 
 
 def build(config, logger):
-    # TODO: Refactor this code
     config = deepcopy(config)
-
     criteria = dict()
     for criterion_name, criterion_config in config.items():
         criteria[criterion_name] = CRITERIA[criterion_name](**criterion_config)
-
         logger.infov('{} criterion is built.'.format(criterion_name.upper()))
     return criteria

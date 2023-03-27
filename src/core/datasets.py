@@ -90,7 +90,7 @@ class LVIDLandmark(Dataset, ABC):
             ed_frame = hflip(ed_frame)
         
         # Add the echo frame to data_item
-        data_item["x"] = ed_frame
+        data_item["x"] = ed_frame.squeeze(0)
 
         # Create labels from the coordinates
         data_item["y"] = torch.from_numpy(coords)
@@ -190,11 +190,14 @@ class LVOTLandmark(Dataset, ABC):
 
         # TODO: fix the from numpy and the dimensions of the data
         img_LVOT = img_LVOT[:, :, np.newaxis]
-        data_item["x"] = torch.from_numpy(img_LVOT)
+        # data_shape after permute -> (batch_size, channels, height, width)
+        data_item["x"] = torch.from_numpy(img_LVOT).permute(2, 0, 1).float()
         gt_LVOT = gt_LVOT[:, :, np.newaxis]
-        data_item["gt_LVOT"] = torch.from_numpy(gt_LVOT)
+        data_item["gt_LVOT"] = torch.from_numpy(gt_LVOT).permute(2, 0, 1).float()
+        #TODO: Is path needed?
         data_item["path"] = path
-        data_item["y"] =  torch.from_numpy(LVOT_coordinate.astype(int))
+        data_item["y"] =  torch.from_numpy(LVOT_coordinate.astype(int)).view(2, 2)
+        data_item["valid_labels"] = torch.ones_like(data_item["y"])
 
         return data_item
 

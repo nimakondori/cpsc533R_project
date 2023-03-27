@@ -1,5 +1,6 @@
 from datetime import timedelta
 import pandas as pd
+import numpy as np
 import torch
 import time
 import matplotlib.pyplot as plt
@@ -86,6 +87,7 @@ class Engine(BaseEngine):
                                                     use_data_parallel=True if torch.cuda.device_count() > 1 else False)
 
         # Build the model
+        self.num_output_channels = 2
         self.model = model_builder.build(
             config = self.model_config, logger = self.logger)
         
@@ -158,7 +160,7 @@ class Engine(BaseEngine):
             train_time = time.time() - train_start
 
             # print a summary of the training epoch
-            self.log_summary("Training", epoch, train_time)
+            # self.log_summary("Training", epoch, train_time)
             self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/train')
 
             if self.train_config['lr_schedule']['name'] == 'multi':
@@ -193,36 +195,40 @@ class Engine(BaseEngine):
         # 3. Finish the paper 
         # 4. Apply the model here
         
-        dataloader = self.dataloaders['lvidlandmark']['train']
+        lvid_dataloader = self.dataloaders['lvidlandmark']['train']
+        lvot_dataloader = self.dataloaders['lvotlandmark']['train']
 
         for model_name in self.model.keys():
             self.model[model_name].train()
 
-        epoch_steps = len(dataloader)
-        data_iter = iter(dataloader)
+        # epoch_steps = min(len(lvid_dataloader), len(lvot_dataloader))
+        # Try to overfit on one batch
+        epoch_steps = 1
+        lvid_iter = iter(lvid_dataloader)
+        lvot_iter = iter(lvot_dataloader)
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:
-            data_batch = next(data_iter)
+            # randomly choose between lvid and lvot
+            data_type = "lvid" if bool(np.random.randint(0, 2)) else "lvot"
+            if data_type == "lvid":
+                data_batch = next(lvid_iter)
+            else:
+                data_batch = next(lvot_iter)
+                # input_frames = data_batch["x"]
 
-            # Process each sample in the batch
-
-            # data_batch.to(self.device)
             data_batch = self.set_device(data_batch, self.device)
 
-            input_frames = data_batch["x"]
-            landmark_y = data_batch["y"]
-            landmark_valid = data_batch["valid_labels"]
-            pix2mm_x = data_batch["pix2mm_x"]
-            pix2mm_y = data_batch["pix2mm_y"]
-
-            # Get frame embeddings
-            # x = self.model['embedder'](input_frames)
-
             # PUT YOUR MODEL HERE
-            node_landmark_preds =  self.model['landmark']()
+            landmark_preds = self.model['landmark'](
+                    input_frames=data_batch["x"], 
+                    data_type=data_type)
 
             # Compute loss
-            losses = self.compute_loss()
+            # TODO: investigate the valid labels 
+            losses = self.compute_loss(landmark_preds=landmark_preds, 
+                                       landmark_y=data_batch['y'], 
+                                       data_type=data_type, 
+                                       valid_labels=data_batch.get('valid_labels'))
             if type(losses) == dict:
                 loss = sum(losses.values())
             elif type(losses) == float:
@@ -236,15 +242,20 @@ class Engine(BaseEngine):
             self.optimizer.step()
 
             with torch.no_grad():
-                # Add to losses
-                if type(data_batch) == list:
-                    batch_size = len(data_batch)
-                else:
-                    batch_size = data_batch.batch[-1].item() + 1
+
+                batch_size = data_batch['x'].shape[0]
+                # TODO: Investigate what the code below does. For now I just used the x.shape[0]
+                # # Add to losses
+                # if type(data_batch) == list:
+                #     batch_size = len(data_batch)
+                # else:
+                #     batch_size = data_batch.batch[-1].item() + 1
                 self.loss_meter.update(loss.item(), batch_size)
 
                 # update evaluators
-                self.update_evaluators()
+                self.update_evaluators(landmark_preds=landmark_preds,
+                                       landmark_y=data_batch['y'],
+                                       valid=data_batch.get('valid_labels'))
 
                 # update tqdm progress bar
                 self.set_tqdm_description(iterator, 'train', epoch, loss.item())
@@ -295,6 +306,7 @@ class Engine(BaseEngine):
             data_batch = next(data_iter)
             with torch.no_grad():
                 data_batch = self.set_device(data_batch, self.device)
+
                 input_frames = data_batch["x"]
                 landmark_y = data_batch["y"]
                 landmark_valid = data_batch["valid_labels"]
@@ -304,7 +316,13 @@ class Engine(BaseEngine):
                 # PUT YOUR MODEL HERE
                 # x = self.model['embedder'](input_frames)
 
-                node_landmark_preds= self.model['landmark']()
+                landmark_preds= self.model['landmark'](
+                    input_frames=input_frames, 
+                    landmark_y=landmark_y, 
+                    landmark_valid=landmark_valid, 
+                    pix2mm_x=pix2mm_x, 
+                    pix2mm_y=pix2mm_y
+                )
 
                 # Compute loss
                 losses = self.compute_loss()
@@ -336,9 +354,9 @@ class Engine(BaseEngine):
                     if num_steps % self.wandb_log_steps == 0:
                         # self.log_heatmap_wandb({"step": step},
                         #                        input_frames,
-                        #                        node_landmark_preds,
-                        #                        node_landmark_y,
-                        #                        node_coord_preds,
+                        #                        landmark_preds,
+                        #                        landmark_y,
+                        #                        coord_preds,
                         #                        pix2mm_x,
                         #                        pix2mm_y,
                         #                        mode='batch_valid')
@@ -366,46 +384,42 @@ class Engine(BaseEngine):
         return
 
     def update_evaluators(self,
-                          node_landmark_preds,
-                          node_landmark_y,
-                          node_coord_preds,
-                          node_coord_y,
-                          pix2mm_x,
-                          pix2mm_y,
-                          valid):
+                          landmark_preds,
+                          landmark_y,
+                          coord_preds=None,
+                          coord_y=None,
+                          pix2mm_x=None,
+                          pix2mm_y=None,
+                          valid=None):
         """
         update the evaluators with predictions of the current batch. inputs are in cuda
         """
-        node_landmark_preds, node_landmark_y, valid = node_landmark_preds.detach().cpu(), \
-                                                      node_landmark_y.detach().cpu(), \
+        landmark_preds, landmark_y, valid = landmark_preds.detach().cpu(), \
+                                                      landmark_y.detach().cpu(), \
                                                       valid.detach().cpu()
-        pix2mm_x, pix2mm_y = pix2mm_x.detach().cpu(), pix2mm_y.detach().cpu()
-
-        if self.use_coordinate_graph:
-            node_coord_preds, node_coord_y = node_coord_preds.detach().cpu(), node_coord_y.detach().cpu()
 
         for metric in self.eval_config["standards"]:
             if metric == 'landmarkcoorderror':
-                if self.use_coordinate_graph:
-                    self.evaluators[metric].update(node_coord_preds, node_coord_y, pix2mm_x, pix2mm_y, valid)
-                else:
-                    self.evaluators[metric].update(node_landmark_preds, node_landmark_y, pix2mm_x, pix2mm_y, valid)
+                self.evaluators[metric].update(landmark_preds, landmark_y, pix2mm_x, pix2mm_y, valid)
             else:
-                self.evaluators[metric].update(node_landmark_preds, node_landmark_y, valid)
+                self.evaluators[metric].update(landmark_preds, landmark_y)
 
     def set_tqdm_description(self, iterator, mode, epoch, loss):
         standard_name = self.eval_config["standard"]
         standard_value = self.evaluators[standard_name].get_last()
-        last_errors = self.evaluators['landmarkcoorderror'].get_last()
+        # last_errors = self.evaluators['landmarkcoorderror'].get_last()
+        # iterator.set_description("[Epoch {}] | {} | Loss: {:.4f} | "
+        #                          "{}: {:.4f} | "
+        #                          "[{ivs:.1f}, {lvid_top:.1f}, {lvid_bot:.1f}, {lvpw:.1f}] | "
+        #                          "[{ivs_w:.1f}, {lvid_w:.1f}, {lvpw_w:.1f}]" .format(epoch,
+        #                                                                              mode,
+        #                                                                              loss,
+        #                                                                              standard_name,
+        #                                                                              standard_value,
+        #                                                                              **last_errors),
+        #                          refresh=True)
         iterator.set_description("[Epoch {}] | {} | Loss: {:.4f} | "
-                                 "{}: {:.4f} | "
-                                 "[{ivs:.1f}, {lvid_top:.1f}, {lvid_bot:.1f}, {lvpw:.1f}] | "
-                                 "[{ivs_w:.1f}, {lvid_w:.1f}, {lvpw_w:.1f}]" .format(epoch,
-                                                                                     mode,
-                                                                                     loss,
-                                                                                     standard_name,
-                                                                                     standard_value,
-                                                                                     **last_errors),
+                                 "{}: {:.4f} | ".format(epoch, mode, loss, standard_name, standard_value),
                                  refresh=True)
 
 
@@ -489,6 +503,27 @@ class Engine(BaseEngine):
         elif type(data) == dict:
             for k, v in data.items():
                 data[k] = self.set_device(v, device)
+        elif type(data) == str:
+            pass
         else: 
             data = data.to(device)
         return data
+    
+    
+    def compute_loss(self, landmark_preds, landmark_y, data_type, valid_labels=None):
+        """
+        computes and sums all the loss values to be a single number, ready for backpropagation
+        """
+
+        losses = dict()
+        if data_type == 'lvid':
+            landmark_preds = landmark_preds.view(self.train_config['batch_size'], -1, 2*self.num_output_channels)
+            landmark_y = landmark_y.view(self.train_config['batch_size'], -1, 2*self.num_output_channels)
+        else:
+            landmark_preds = landmark_preds.view(self.train_config['batch_size'], -1, self.num_output_channels)
+            landmark_y = landmark_y.view(self.train_config['batch_size'], -1, self.num_output_channels)
+
+        for criterion_name in self.criterion.keys():
+            losses[criterion_name] = self.criterion[criterion_name].compute(landmark_preds,
+                                                                            landmark_y)
+        return losses

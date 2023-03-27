@@ -6,7 +6,7 @@ from copy import deepcopy
 EVALUATORS = {
     'accuracy': BinaryAccuracyEvaluator,
     'balancedaccuracy': BalancedBinaryAccuracyEvaluator,
-    # 'landmarkcoorderror': LandmarkExpectedCoordiantesEvaluator,
+    'landmarkcoorderror': LandmarkExpectedCoordiantesEvaluator,
     # 'landmarkerror': LandmarkErrorEvaluator,
     'mse': MSEEvaluator
 }
@@ -19,13 +19,13 @@ def build(config, logger):
 
     evaluators = dict()
     for standard in config['standards']:
-        # if standard in ['landmarkerror', 'landmarkcoorderror']:
-        #     evaluators.update({standard: EVALUATORS[standard](logger=logger,
-        #                                                       batch_size=batch_size,
-        #                                                       frame_size=frame_size,
-        #                                                       use_coord_graph=use_coord_graph)})
-        # else:
-        evaluators.update({standard: EVALUATORS[standard](logger=logger)})
+        if standard in ['landmarkerror', 'landmarkcoorderror']:
+            evaluators.update({standard: EVALUATORS[standard](logger=logger,
+                                                              batch_size=batch_size,
+                                                              frame_size=frame_size,
+                                                              use_coord_graph=False)})
+        else:
+            evaluators.update({standard: EVALUATORS[standard](logger=logger)})
 
         logger.infov('{} evaluator is built.'.format(standard.upper()))
 

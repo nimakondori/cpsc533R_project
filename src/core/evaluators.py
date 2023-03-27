@@ -240,7 +240,7 @@ class LandmarkExpectedCoordiantesEvaluator(object):
     """
     to locate the landmarks by finding the expected value of a softmaxed heatmap and calcualte how far they are from gt
     """
-    def __init__(self, logger, batch_size, frame_size, use_coord_graph):
+    def __init__(self, logger, batch_size, frame_size, use_coord_graph=False):
 
         self.coordinate_errors = {'ivs': [],
                                   'lvid_top': [],
