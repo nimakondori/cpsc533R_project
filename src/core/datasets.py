@@ -174,7 +174,7 @@ class LVOTLandmark(Dataset, ABC):
         # path, data_pixel_x, data_pixel_y = self.data_info.iloc[idx]
         path = data["cleaned_path"]
         
-        mat_contents = sio.loadmat(data["cleaned_path"])
+        mat_contents = sio.loadmat(path)
         cine = mat_contents['cine']
         img_LVOT = cine[:,:,mat_contents['lvot_frame'][0][0]-1]
         img_LVOT = cv2.resize(img_LVOT, (self.frame_size, self.frame_size))
