@@ -59,16 +59,16 @@ eval:
 data: 
   - dataset:
       name: lvidlandmark
-      data_dir: 'data/LVID/LV_PLAX2_cleaned'
-      metadata_dir: 'data/lv_plax2_cleaned_info_landmark_gt_filtered_short.csv'
+      data_dir: '/mnt/data/LV_PLAX2_cleaned/Cleaned'
+      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered_short.csv'
       transform: 
         image_size: 224
         crop_size: 28
 
   - dataset:
       name: lvotlandmark
-      data_dir: 'data/LVOT_cleaned'
-      metadata_dir: 'data/LVOT_Cleaned_all_short.csv'
+      data_dir: '/mnt/data/PLAX_LVOT_landmarksd/LVOT_cleaned'
+      metadata_dir: '/mnt/data/LVOT_Cleaned_all_short.csv'
       heatmap_radius: 7
       transform: 
         image_size: 224
