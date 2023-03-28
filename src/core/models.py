@@ -168,10 +168,7 @@ class CNN_Basic(nn.Module):
         
         # Fully connected layers
         self.fc1 = nn.Linear(256 * 14 * 14, 512)
-        self.fc2 = nn.Linear(512, 4) # 4 output points
-
-        print(1/0)
-        print('Yo Yo Yo !!!')
+        self.fc2 = nn.Linear(512, 8) # 4 output points                
         
     def forward(self, x):
         x = F.relu(self.conv1(x))
