@@ -1,0 +1,55 @@
+train: 
+  seed: 200
+  batch_size: 3
+  num_workers: 0
+  use_wandb: False
+  wand_project_name: multi_transformer
+  wandb_mode: online
+  wandb_run_name: "RUN NAME"
+
+  lr_schedule: 
+    name: "reduce_lr_on_plateau"
+    mode: 'min'
+    factor: 0.5  # Factor by which the learning rate will be reduced
+    patience: 2 # Number of epochs with no improvement after which learning rate will be reduced
+    threshold: 0.01  # Threshold for measuring the new optimum, to only focus on significant changes
+    min_lr: 0.000001  # 1e-6
+    verbose: True
+
+  optimizer: 
+    name: adam
+    lr: 0.001  # 1e-3
+    weight_decay: 0.0001  # 1e-4
+
+  criterion:
+    mae:
+      loss_weight: 1 # Coefficient in weighted loss calculation    
+
+model:
+  checkpoint_path: ""  
+  name: cnn_basic    
+
+eval:  
+  standards: [ "mse"]  
+  standard: "mse"  
+  minimize: False
+
+data: 
+  - dataset:
+      name: lvidlandmark
+      data_dir: '/mnt/data/LV_PLAX2_cleaned/Cleaned'
+      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered_short.csv'
+      transform: 
+        image_size: 224
+        crop_size: 28
+
+  - dataset:
+      name: lvotlandmark
+      data_dir: '/mnt/data/PLAX_LVOT_landmarksd/LVOT_cleaned'
+      metadata_dir: '/mnt/data/LVOT_Cleaned_all_short.csv'
+      heatmap_radius: 7
+      transform: 
+        image_size: 224
+        crop_size: 28
+
+
