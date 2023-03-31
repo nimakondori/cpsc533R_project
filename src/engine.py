@@ -175,20 +175,14 @@ class Engine(BaseEngine):
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:            
             data_type = "lvid"           
-            data_batch = next(lvid_iter)            
-            
-            visualize_LVID(data_batch)         
-
+            data_batch = next(lvid_iter)                        
             data_batch = self.set_device(data_batch, self.device)
             
-            landmark_preds = self.model['landmark'](
-                    input_frames=data_batch["x"], 
-                    data_type=data_type)
-            
+            landmark_preds = self.model(input_frames=data_batch["x"], data_type=data_type)            
             losses = self.compute_loss(landmark_preds=landmark_preds, 
                                        landmark_y=data_batch['y'], 
-                                       data_type=data_type, 
-                                       valid_labels=data_batch.get('valid_labels'))
+                                       data_type=data_type)
+            
             if type(losses) == dict:
                 loss = sum(losses.values())
             elif type(losses) == float:
@@ -206,8 +200,7 @@ class Engine(BaseEngine):
 
                 # update evaluators
                 self.update_evaluators(landmark_preds=landmark_preds,
-                                       landmark_y=data_batch['y'],
-                                       valid=data_batch.get('valid_labels'))
+                                       landmark_y=data_batch['y'])
 
                 # update tqdm progress bar
                 self.set_tqdm_description(iterator, 'train', epoch, loss.item())
@@ -256,17 +249,15 @@ class Engine(BaseEngine):
                 data_batch = self.set_device(data_batch, self.device)
 
                 input_frames = data_batch["x"]
-                landmark_y = data_batch["y"]
-                landmark_valid = data_batch["valid_labels"]
+                landmark_y = data_batch["y"]                
                 pix2mm_x = data_batch["pix2mm_x"]
                 pix2mm_y = data_batch["pix2mm_y"]
 
                 self.model_config['name']
 
-                landmark_preds= self.model['landmark'](
+                landmark_preds= self.model(
                     input_frames=input_frames, 
-                    landmark_y=landmark_y, 
-                    landmark_valid=landmark_valid, 
+                    landmark_y=landmark_y,                     
                     pix2mm_x=pix2mm_x, 
                     pix2mm_y=pix2mm_y
                 )
@@ -333,18 +324,15 @@ class Engine(BaseEngine):
                           coord_preds=None,
                           coord_y=None,
                           pix2mm_x=None,
-                          pix2mm_y=None,
-                          valid=None):
+                          pix2mm_y=None):
         """
         update the evaluators with predictions of the current batch. inputs are in cuda
         """
-        landmark_preds, landmark_y, valid = landmark_preds.detach().cpu(), \
-                                                      landmark_y.detach().cpu(), \
-                                                      valid.detach().cpu()
+        landmark_preds, landmark_y = landmark_preds.detach().cpu(), landmark_y.detach().cpu()
 
         for metric in self.eval_config["standards"]:
             if metric == 'landmarkcoorderror':
-                self.evaluators[metric].update(landmark_preds, landmark_y, pix2mm_x, pix2mm_y, valid)
+                self.evaluators[metric].update(landmark_preds, landmark_y, pix2mm_x, pix2mm_y)
             else:
                 self.evaluators[metric].update(landmark_preds, landmark_y)
 
@@ -441,7 +429,7 @@ class Engine(BaseEngine):
         return data
     
     
-    def compute_loss(self, landmark_preds, landmark_y, data_type, valid_labels=None):
+    def compute_loss(self, landmark_preds, landmark_y, data_type):
         """
         computes and sums all the loss values to be a single number, ready for backpropagation
         """

@@ -90,8 +90,7 @@ class LVIDLandmark(Dataset, ABC):
         data_item["x"] = ed_frame.squeeze(0)
 
         # Create labels from the coordinates
-        data_item["y"] = torch.from_numpy(coords)
-        data_item["valid_labels"] = torch.ones_like(data_item["y"])
+        data_item["y"] = torch.from_numpy(coords)        
 
         # Get the scale for each pixel in mm/pixel
         deltaY = data['DeltaY'] * orig_size / self.frame_size
