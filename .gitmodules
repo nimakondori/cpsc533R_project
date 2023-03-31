@@ -1,0 +1,3 @@
+[submodule "external/533R-AutoLink-Self-supervised-Learning-of-Human-Skeletons-and-Object-Outlines-by-Linking-Keypoints"]
+	path = external/533R-AutoLink-Self-supervised-Learning-of-Human-Skeletons-and-Object-Outlines-by-Linking-Keypoints
+	url = https://github.com/vctoriawu/533R-AutoLink-Self-supervised-Learning-of-Human-Skeletons-and-Object-Outlines-by-Linking-Keypoints.git
