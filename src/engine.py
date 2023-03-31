@@ -135,19 +135,7 @@ class Engine(BaseEngine):
         checkpoint_step = self.train_config.get('checkpoint_step', 1000)
 
         self._build(mode='train')
-        self.logger.info("datasets successfully built.")
-        
-        # # Do data sanity check here 
-        # lvid_train_iter = iter(self.dataloaders['lvidlandmark']['train'])
-        # lvot_train_iter = iter(self.dataloaders['lvotlandmark']['train'])
-
-        # Visualize the data 
-        # LVID_smaple_batch = next(lvid_train_iter)
-        # LVOT_smaple_batch = next(lvot_train_iter)
-        # visualize_LVID(LVID_smaple_batch) 
-        # visualize_LVOT(LVOT_smaple_batch) 
-        # visualize_LVOT_gt(LVOT_smaple_batch) 
-        
+        self.logger.info("datasets successfully built.")                                    
         self.logger.info(
             'Train for {} epochs starting from epoch {}'.format(num_epochs, start_epoch))
 
@@ -159,17 +147,16 @@ class Engine(BaseEngine):
             num_steps = self._train_one_epoch(epoch, num_steps, checkpoint_step)
             train_time = time.time() - train_start
 
-            # print a summary of the training epoch
-            # self.log_summary("Training", epoch, train_time)
+            # print a summary of the training epoch            
             self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/train')
+            self.log_summary("Training", epoch, train_time)
 
             if self.train_config['lr_schedule']['name'] == 'multi':
                 self.scheduler.step()
             self.loss_meter.reset()
             util.reset_evaluators(self.evaluators)
 
-            # Evaluate
-            # if epoch - start_epoch > 0.0 * num_epochs:
+            # Evaluate            
             train_start = time.time()
             self._evaluate_once(epoch, num_steps)
             validation_time = time.time() - train_start
@@ -182,27 +169,16 @@ class Engine(BaseEngine):
                                    num_steps,
                                    self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
                                    best_mode='min')
-            self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/valid')
-            # print a summary of the validation epoch
+            self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/valid')            
             self.log_summary("Validation", epoch, validation_time)
 
-    def _train_one_epoch(self, epoch, num_steps, checkpoint_step):
-        # TODO: Investigate how different dataloaders are used
-        # Load the dataloader for each dataset
-        # For next steps start here.
-        # 1. Address the todos regarding the evaluators.py
-        # 2. Get a train from the model in UNIT transformer
-        # 3. Finish the paper 
-        # 4. Apply the model here
-        
+    def _train_one_epoch(self, epoch, num_steps, checkpoint_step):                
         lvid_dataloader = self.dataloaders['lvidlandmark']['train']
         lvot_dataloader = self.dataloaders['lvotlandmark']['train']
 
         for model_name in self.model.keys():
             self.model[model_name].train()
-
-        # epoch_steps = min(len(lvid_dataloader), len(lvot_dataloader))
-        # Try to overfit on one batch
+        
         epoch_steps = 1
         lvid_iter = iter(lvid_dataloader)
         lvot_iter = iter(lvot_dataloader)
@@ -215,6 +191,8 @@ class Engine(BaseEngine):
             else:
                 data_batch = next(lvot_iter)
                 # input_frames = data_batch["x"]
+
+            visualize_LVID(data_batch)         
 
             data_batch = self.set_device(data_batch, self.device)
 
@@ -313,8 +291,7 @@ class Engine(BaseEngine):
                 pix2mm_x = data_batch["pix2mm_x"]
                 pix2mm_y = data_batch["pix2mm_y"]
 
-                # PUT YOUR MODEL HERE
-                # x = self.model['embedder'](input_frames)
+                self.model_config['name']
 
                 landmark_preds= self.model['landmark'](
                     input_frames=input_frames, 
