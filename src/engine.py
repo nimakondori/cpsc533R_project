@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os.path as osp
 
 from src.utils import util
-from src.utils.util import visualize_LVID, visualize_LVOT, visualize_LVOT_gt
+from src.utils.util import visualize_LVID
 from src.builders import  dataloader_builder, dataset_builder, model_builder, optimizer_builder, \
                             scheduler_builder, criterion_builder, evaluator_builder, meter_builder
 import wandb
@@ -60,8 +60,7 @@ class BaseEngine(object):
             wandb.define_metric("batch_train/*", step_metric="batch_train/step")
             wandb.define_metric("batch_valid/*", step_metric="batch_valid/step")
             wandb.define_metric("epoch/*", step_metric="epoch")
-            wandb.define_metric("lr", step_metric="epoch")
-        # TODO: Investigate what this does
+            wandb.define_metric("lr", step_metric="epoch")                    
         self.wandb_log_steps = config['train'].get('wandb_log_steps', 1000)
 
     def run(self):
@@ -90,8 +89,7 @@ class Engine(BaseEngine):
         self.num_output_channels = 2
         self.model = model_builder.build(
             config = self.model_config, logger = self.logger)
-        
-        
+                
         # Use multi GPUs if available
         if torch.cuda.device_count() > 1:
             for model_key in self.model:
@@ -124,8 +122,7 @@ class Engine(BaseEngine):
 
         # Build the evaluator
         self.evaluators = evaluator_builder.build(
-            config = self.eval_config, logger = self.logger)
-        
+            config = self.eval_config, logger = self.logger)        
 
 
     def run(self):
@@ -173,36 +170,24 @@ class Engine(BaseEngine):
             self.log_summary("Validation", epoch, validation_time)
 
     def _train_one_epoch(self, epoch, num_steps, checkpoint_step):                
-        lvid_dataloader = self.dataloaders['lvidlandmark']['train']
-        lvot_dataloader = self.dataloaders['lvotlandmark']['train']
+        lvid_dataloader = self.dataloaders['lvidlandmark']['train']        
 
         for model_name in self.model.keys():
             self.model[model_name].train()
         
         epoch_steps = 1
-        lvid_iter = iter(lvid_dataloader)
-        lvot_iter = iter(lvot_dataloader)
+        lvid_iter = iter(lvid_dataloader)        
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
-        for i in iterator:
-            # randomly choose between lvid and lvot
-            data_type = "lvid" if bool(np.random.randint(0, 2)) else "lvot"
-            if data_type == "lvid":
-                data_batch = next(lvid_iter)
-            else:
-                data_batch = next(lvot_iter)
-                # input_frames = data_batch["x"]
-
+        for i in iterator:            
+            data_type = "lvid"           
+            data_batch = next(lvid_iter)            
             visualize_LVID(data_batch)         
-
             data_batch = self.set_device(data_batch, self.device)
-
-            # PUT YOUR MODEL HERE
+            
             landmark_preds = self.model['landmark'](
                     input_frames=data_batch["x"], 
                     data_type=data_type)
-
-            # Compute loss
-            # TODO: investigate the valid labels 
+            
             losses = self.compute_loss(landmark_preds=landmark_preds, 
                                        landmark_y=data_batch['y'], 
                                        data_type=data_type, 
@@ -214,20 +199,12 @@ class Engine(BaseEngine):
             else:
                 raise(f"invalid variable type {type(losses)} for computed losses")
 
-            # Backward propagation
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
             with torch.no_grad():
-
-                batch_size = data_batch['x'].shape[0]
-                # TODO: Investigate what the code below does. For now I just used the x.shape[0]
-                # # Add to losses
-                # if type(data_batch) == list:
-                #     batch_size = len(data_batch)
-                # else:
-                #     batch_size = data_batch.batch[-1].item() + 1
+                batch_size = data_batch['x'].shape[0]                
                 self.loss_meter.update(loss.item(), batch_size)
 
                 # update evaluators
@@ -241,7 +218,7 @@ class Engine(BaseEngine):
                 if self.train_config['use_wandb']:
                     step = (epoch*epoch_steps + i)*batch_size
                     self.log_wandb(losses, {"step":step}, mode='batch_train')
-                # Save a checkpoint
+                
                 num_steps += batch_size
                 if num_steps % checkpoint_step == 0:
                     self.checkpointer.save(epoch, num_steps)
@@ -250,26 +227,22 @@ class Engine(BaseEngine):
         return num_steps
 
     def evaluate(self, data_type='val'):
-        start_epoch, num_steps = 0, 0
-
+        num_steps = 0
         self._build(mode='test')
-
         self.logger.info('Evaluating the model')
-
         util.reset_evaluators(self.evaluators)
         self.loss_meter.reset()
 
         # Evaluate
         train_start = time.time()
         self._evaluate_once(0, num_steps, data_type=data_type, save_output=True)
-        validation_time = time.time() - train_start
-        # print a summary of the validation epoch
+        validation_time = time.time() - train_start        
         self.log_summary("Validation", 0, validation_time)
         self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": 0}, mode='epoch/valid')
 
     def _evaluate_once(self, epoch, num_steps, data_type='val', save_output=False):
-
-        if save_output: # for generating a csv output of model's prediction on dataset
+        # for generating a csv output of model's prediction on dataset
+        if save_output: 
             prediction_df = pd.DataFrame()
 
         dataloader = self.dataloaders[data_type]
@@ -302,7 +275,7 @@ class Engine(BaseEngine):
                 )
 
                 # Compute loss
-                losses = self.compute_loss()
+                losses = self.compute_loss(landmark_preds)
 
                 if type(losses) == dict:
                     loss = sum(losses.values())
@@ -329,26 +302,23 @@ class Engine(BaseEngine):
                     self.log_wandb(losses, {"step":step}, mode='batch_valid')
                     # plot the heatmaps
                     if num_steps % self.wandb_log_steps == 0:
-                        # self.log_heatmap_wandb({"step": step},
-                        #                        input_frames,
-                        #                        landmark_preds,
-                        #                        landmark_y,
-                        #                        coord_preds,
-                        #                        pix2mm_x,
-                        #                        pix2mm_y,
-                        #                        mode='batch_valid')
-                        pass
-                        # You can add logs here
-
-                # plot the heatmaps
+                        self.log_heatmap_wandb({"step": step},
+                                               input_frames,
+                                               landmark_preds,
+                                               landmark_y,
+                                               landmark_preds,
+                                               pix2mm_x,
+                                               pix2mm_y,
+                                               mode='batch_valid')                          
+                
                 num_steps += batch_size
 
-                # ##### creating the prediction log table for wandb #TODO update
+                # creating the prediction log table for wandb
                 if save_output:
                     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
         if save_output:
-            # ###### Prediction Table
+            # Prediction Table
             if self.train_config['use_wandb']:
                 prediction_log_table = wandb.Table(dataframe=prediction_df)
                 wandb.log({f"model_output_{data_type}_dataset": prediction_log_table})
@@ -383,23 +353,10 @@ class Engine(BaseEngine):
 
     def set_tqdm_description(self, iterator, mode, epoch, loss):
         standard_name = self.eval_config["standard"]
-        standard_value = self.evaluators[standard_name].get_last()
-        # last_errors = self.evaluators['landmarkcoorderror'].get_last()
-        # iterator.set_description("[Epoch {}] | {} | Loss: {:.4f} | "
-        #                          "{}: {:.4f} | "
-        #                          "[{ivs:.1f}, {lvid_top:.1f}, {lvid_bot:.1f}, {lvpw:.1f}] | "
-        #                          "[{ivs_w:.1f}, {lvid_w:.1f}, {lvpw_w:.1f}]" .format(epoch,
-        #                                                                              mode,
-        #                                                                              loss,
-        #                                                                              standard_name,
-        #                                                                              standard_value,
-        #                                                                              **last_errors),
-        #                          refresh=True)
+        standard_value = self.evaluators[standard_name].get_last()                
         iterator.set_description("[Epoch {}] | {} | Loss: {:.4f} | "
                                  "{}: {:.4f} | ".format(epoch, mode, loss, standard_name, standard_value),
                                  refresh=True)
-
-
     
     def log_summary(self, mode, epoch, time):
         """
