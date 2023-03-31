@@ -1,6 +1,6 @@
 train: 
   seed: 200
-  batch_size: 16
+  batch_size: 16  
   num_workers: 0
   use_wandb: False
   wand_project_name: multi_transformer
@@ -31,7 +31,7 @@ model:
 
 
 eval:  
-  standards: [ "mse"]  
+  standards: ["mse"]  
   standard: "mse"  
   minimize: False
 
