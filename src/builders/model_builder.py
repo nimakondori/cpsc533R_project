@@ -5,7 +5,7 @@ from copy import deepcopy
 MODELS = {
     'umtt': UMMT,
     'cnn_basic': CNN_Basic,
-    'ViT': ViT,
+    'vit': ViT,
 }
 
 

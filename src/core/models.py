@@ -253,8 +253,8 @@ class Transformer(nn.Module):
 class ViT(nn.Module):
     def __init__(self, *, image_size, n_channels, patch_size, n_classes, d_model, n_layers, n_heads, d_mlp, d_head=64, pool='cls', dropout=0., emb_dropout=0.):
         super().__init__()
-        image_height, image_width = pair(image_size)
-        patch_height, patch_width = pair(patch_size)        
+        image_height, image_width = image_size, image_size
+        patch_height, patch_width = patch_size, patch_size        
 
         assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Image dimensions must be divisible by the patch size.'
 
@@ -282,9 +282,8 @@ class ViT(nn.Module):
             nn.Linear(d_model, n_classes)
         )
 
-    def forward(self, input_dict):
-        img = input_dict['image']                 
-        x = self.to_patch_embedding(img)        
+    def forward(self, x):        
+        x = self.to_patch_embedding(x)        
         b, n, _ = x.shape
 
         cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
@@ -294,22 +293,6 @@ class ViT(nn.Module):
 
         x = self.transformer(x)
         x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]        
-        pred_label = self.mlp_head(x)
+        x = self.mlp_head(x)
 
-        return {'label': pred_label}        
-
-
-network = ViT(
-    image_size = 28,
-    n_channels = 1,
-    patch_size = 4,
-    n_classes = 10,
-    d_model = 64,
-    n_layers = 6,
-    n_heads = 8,
-    d_mlp = 256,
-    d_head = 8,
-    pool = 'cls',
-    dropout = 0.1,
-    emb_dropout = 0.1
-).to('cuda')
+        return x.view(-1, 4, 2)
