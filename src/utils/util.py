@@ -147,8 +147,8 @@ def reset_evaluators(evaluators):
 def visualize_LVID(batch):
     fig = plt.figure()
     axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
-    x = batch["x"]
-    y = batch["y"]
+    x = batch["x"][0:1]
+    y = batch["y"][0:1]
     for i in range(len(x)):
         axes[i].imshow(x[i].squeeze().squeeze())
         axes[i].set_title(f"LVID Sample {i+1}")
