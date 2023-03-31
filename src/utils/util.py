@@ -9,9 +9,6 @@ from distutils.util import strtobool
 import matplotlib.pyplot as plt
 
 
-# Logging
-# =======
-
 def load_log(name):
     def _infov(self, msg, *args, **kwargs):
         self.log(logging.INFO + 1, msg, *args, **kwargs)
@@ -46,9 +43,6 @@ def load_log(name):
     logging.Logger.infov = _infov
     return log
 
-
-# General utils
-# =============
 
 def load_config(config_path) -> dict:
     """
@@ -122,27 +116,10 @@ def updated_config() -> Dict[str, Any]:
     return config
 
 
-# Path utils
-# ==========
-
 def mkdir_p(path):
     os.makedirs(path, exist_ok=True)
     return path
 
-
-# # MultiGPU
-# # ========
-
-# class DataParallel(torch.nn.DataParallel):
-#     def __getattr__(self, name):
-#         try:
-#             return super().__getattr__(name)
-#         except AttributeError:
-#             return getattr(self.module, name)
-
-
-# Data
-# ====
 
 def normalization_params():
     mean = [0.485, 0.456, 0.406]
@@ -167,8 +144,7 @@ def reset_evaluators(evaluators):
         evaluators[evaluator].reset()
 
 
-def visualize_LVID(batch, 
-                      ):
+def visualize_LVID(batch):
     fig = plt.figure()
     axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
     x = batch["x"]
@@ -183,8 +159,7 @@ def visualize_LVID(batch,
 
     fig.show()
 
-def visualize_LVOT(batch, 
-                      ):
+def visualize_LVOT(batch):
     fig = plt.figure()
     axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
     x = batch["x"]
@@ -197,8 +172,7 @@ def visualize_LVOT(batch,
 
     fig.show()
 
-def visualize_LVOT_gt(batch, 
-                      ):
+def visualize_LVOT_gt(batch):
     fig = plt.figure()
     axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
     x = batch["gt_LVOT"]
@@ -207,4 +181,3 @@ def visualize_LVOT_gt(batch,
         axes[i].set_title(f"LVOT Heatmap {i+1}")
 
     fig.show()
-
