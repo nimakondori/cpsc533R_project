@@ -60,8 +60,7 @@ class LVIDLandmark(Dataset, ABC):
         self.frame_size = frame_size
 
     def __getitem__(self, idx):
-        data_item = {}
-        # Get the data at index
+        data_item = {}        
         data = self.data_info.iloc[idx]
 
         # Unpickle the data
@@ -78,7 +77,7 @@ class LVIDLandmark(Dataset, ABC):
         # ed_frame shape = (224,224),  transform to torch tensor with shape (1,1,resized_size,resized_size)
         orig_size = ed_frame.shape[0]
         ed_frame = torch.tensor(ed_frame, dtype=torch.float32).unsqueeze(0) / 255  # (1, 224,224)
-        ed_frame = self.transform(ed_frame).unsqueeze(0)  # (1,1,frame_size,frame_size)
+        ed_frame = self.transform(ed_frame).unsqueeze(0)  # (1, 1, frame_size, frame_size)
 
         # Extract landmark coordinates
         coords = self.extract_coords(data, orig_size)

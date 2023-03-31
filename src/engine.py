@@ -92,16 +92,14 @@ class Engine(BaseEngine):
                 
         # Use multi GPUs if available
         if torch.cuda.device_count() > 1:
-            for model_key in self.model:
-                    self.model[model_key] = torch.nn.DataParallel(self.model[model_key])
+            self.model = torch.nn.DataParallel(self.model)
 
-        # Update the model devices
-        for model_name in self.model.keys():
-            self.model[model_name] = self.model[model_name].to(self.device)
+        # Update the model devices        
+        self.model = self.model.to(self.device)
 
         # Build the optimizer
         self.optimizer = optimizer_builder.build(
-            config = self.train_config["optimizer"], models = self.model, logger = self.logger)
+            config = self.train_config["optimizer"], model = self.model, logger = self.logger)
         
         # Build the scheduler
         self.scheduler = scheduler_builder.build(
@@ -170,18 +168,17 @@ class Engine(BaseEngine):
             self.log_summary("Validation", epoch, validation_time)
 
     def _train_one_epoch(self, epoch, num_steps, checkpoint_step):                
-        lvid_dataloader = self.dataloaders['lvidlandmark']['train']        
-
-        for model_name in self.model.keys():
-            self.model[model_name].train()
-        
+        lvid_dataloader = self.dataloaders['lvidlandmark']['train']                
+        self.model.train()        
         epoch_steps = 1
         lvid_iter = iter(lvid_dataloader)        
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:            
             data_type = "lvid"           
             data_batch = next(lvid_iter)            
+            
             visualize_LVID(data_batch)         
+
             data_batch = self.set_device(data_batch, self.device)
             
             landmark_preds = self.model['landmark'](

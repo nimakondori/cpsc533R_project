@@ -26,8 +26,9 @@ train:
       loss_weight: 1 # Coefficient in weighted loss calculation    
 
 model:
-  checkpoint_path: ""  
-  name: cnn_basic    
+  name: cnn_basic
+  checkpoint_path: ""    
+
 
 eval:  
   standards: [ "mse"]  
@@ -42,14 +43,3 @@ data:
       transform: 
         image_size: 224
         crop_size: 28
-
-  - dataset:
-      name: lvotlandmark
-      data_dir: '/mnt/data/PLAX_LVOT_landmarksd/LVOT_cleaned'
-      metadata_dir: '/mnt/data/LVOT_Cleaned_all_short.csv'
-      heatmap_radius: 7
-      transform: 
-        image_size: 224
-        crop_size: 28
-
-
