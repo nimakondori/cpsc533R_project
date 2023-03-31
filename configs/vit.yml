@@ -30,13 +30,13 @@ model:
   checkpoint_path: ""
   image_size: 224
   n_channels: 1
-  patch_size: 14
+  patch_size: 7
   n_classes: 8
-  d_model: 64
+  d_model: 256
   n_layers: 6
   n_heads: 8
   d_mlp: 512
-  d_head: 8
+  d_head: 32
   pool: 'cls'
   dropout: 0.1
   emb_dropout: 0.1

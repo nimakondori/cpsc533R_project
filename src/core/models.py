@@ -296,3 +296,4 @@ class ViT(nn.Module):
         x = self.mlp_head(x)
 
         return x.view(-1, 4, 2)
+    
