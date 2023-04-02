@@ -209,7 +209,7 @@ class Engine(BaseEngine):
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:
             # randomly choose between lvid and lvot
-            data_type = "lvid" if bool(np.random.randint(0, 2)) else "lvot"
+            data_type = "lvid" #if bool(np.random.randint(0, 2)) else "lvot"
             if data_type == "lvid":
                 data_batch = next(lvid_iter)
             else:
@@ -217,10 +217,10 @@ class Engine(BaseEngine):
                 # input_frames = data_batch["x"]
 
             data_batch = self.set_device(data_batch, self.device)
-
+            
             # PUT YOUR MODEL HERE
             landmark_preds = self.model['landmark'](
-                    input_frames=data_batch["x"], 
+                    input_frames=data_batch['x'], 
                     data_type=data_type)
 
             # Compute loss

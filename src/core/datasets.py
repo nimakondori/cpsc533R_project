@@ -15,6 +15,10 @@ from abc import ABC
 from torch.utils.data import Dataset
 from torchvision.transforms.functional import hflip
 
+import sys
+sys.path.append('external/cpsc-AutoLink-Self-supervised-Learning-of-Human-Skeletons-and-Object-Outlines-by-Linking-Keypoints')
+from gen_detection import return_keypoints
+
 
 NUM_PREFETCH = 10
 RANDOM_SEED = 7
@@ -61,6 +65,11 @@ class LVIDLandmark(Dataset, ABC):
         self.flip_p = flip_p
         self.frame_size = frame_size
 
+    def get_keypoints(self, frame):
+        kp = return_keypoints(frame)
+        
+        return kp
+
     def __getitem__(self, idx):
         data_item = {}
         # Get the data at index
@@ -76,6 +85,10 @@ class LVIDLandmark(Dataset, ABC):
             ed_frame = cine[:, :, -1]
         else:
             ed_frame = cine[:, :, data['d_frame_number']-1]
+
+        # Get autolink keypoints
+        kp = self.get_keypoints(ed_frame)
+        data_item['keypoints'] = kp
 
         # ed_frame shape = (224,224),  transform to torch tensor with shape (1,1,resized_size,resized_size)
         orig_size = ed_frame.shape[0]
