@@ -125,7 +125,7 @@ class Engine(BaseEngine):
     def run(self):
         # Get needed config here
         start_epoch, num_steps = 0, 0
-        num_epochs = self.train_config.get('num_epochs', 1000)
+        num_epochs = self.train_config.get('num_epochs', 500)
         checkpoint_step = self.train_config.get('checkpoint_step', 1000)
 
         self._build(mode='train')
@@ -193,8 +193,8 @@ class Engine(BaseEngine):
                     self.log_wandb(losses, {"step":step}, mode='batch_train')
                 
                 num_steps += batch_size
-                # if num_steps % checkpoint_step == 0:
-                #     self.checkpointer.save(epoch, num_steps)
+                if num_steps % checkpoint_step == 0:
+                    self.checkpointer.save(epoch, num_steps)
 
         torch.cuda.empty_cache()
         return num_steps
