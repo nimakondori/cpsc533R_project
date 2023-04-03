@@ -124,7 +124,7 @@ class Engine(BaseEngine):
 
         self.checkpointer = checkpointer_builder.build(
             self.save_dir, self.logger, self.model, self.optimizer,
-            self.scheduler, self.eval_config['standard'], best_mode='min')  #TODO make best_mode configurable
+            self.scheduler, self.eval_config['standard'], self.eval_config['best_mode'])
         checkpoint_path = self.model_config.get('checkpoint_path', '')
         # Load the checkpoint
         self.misc = self.checkpointer.load(

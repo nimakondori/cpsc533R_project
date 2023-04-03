@@ -35,6 +35,7 @@ model:
 eval:  
   standards: ["mse"]  
   standard: "mse"  
+  best_mode: "min" # min or max
   minimize: False
 
 data: 
