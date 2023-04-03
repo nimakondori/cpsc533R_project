@@ -160,29 +160,3 @@ def visualize_LVID(batch, save_path=None):
         fig.savefig(save_path + 'test.png')
     else:
         fig.show()
-    
-
-    
-
-def visualize_LVOT(batch):
-    fig = plt.figure()
-    axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
-    x = batch["x"]
-    y = batch["y"]
-    for i in range(len(x)):
-        axes[i].imshow(x[i].squeeze())
-        axes[i].set_title(f"LVOT Sample {i+1}")
-        axes[i].plot(y[i, 0] - 1, y[i, 1] - 1, marker='o', color='r', markersize=5)
-        axes[i].plot(y[i, 2] - 1, y[i, 3] - 1, marker='o', color='r', markersize=5)
-
-    fig.show()
-
-def visualize_LVOT_gt(batch):
-    fig = plt.figure()
-    axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
-    x = batch["gt_LVOT"]
-    for i in range(len(x)):
-        axes[i].imshow(x[i].squeeze())
-        axes[i].set_title(f"LVOT Heatmap {i+1}")
-
-    fig.show()
