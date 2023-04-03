@@ -1,6 +1,8 @@
 train: 
   seed: 200
   batch_size: 16  
+  num_epochs: 200
+  checkpoint_step: 1000
   num_workers: 0
   use_wandb: False
   wand_project_name: multi_transformer
