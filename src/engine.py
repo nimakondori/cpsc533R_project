@@ -168,15 +168,12 @@ class Engine(BaseEngine):
         epoch_steps = 1
         lvid_iter = iter(lvid_dataloader)        
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
-        for i in iterator:            
-            data_type = "lvid"           
+        for i in iterator:                        
             data_batch = next(lvid_iter)                        
-            data_batch = self.set_device(data_batch, self.device)
-            
+            data_batch = self.set_device(data_batch, self.device)        
             landmark_preds = self.model(data_batch["x"])                                
             losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                        
             loss = sum(losses.values())            
-
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
