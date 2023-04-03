@@ -1,4 +1,3 @@
-# import torch
 import logging
 import os
 import yaml
@@ -144,7 +143,7 @@ def reset_evaluators(evaluators):
         evaluators[evaluator].reset()
 
 
-def visualize_LVID(batch):
+def visualize_LVID(batch, save_path=None):
     fig = plt.figure()
     axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
     x = batch["x"][0:1]
@@ -156,8 +155,14 @@ def visualize_LVID(batch):
         axes[i].plot(y[i, 1, 1] - 1, y[i, 1, 0] - 1, marker='o', color='r', markersize=5)
         axes[i].plot(y[i, 2, 1] - 1, y[i, 2, 0] - 1, marker='o', color='w', markersize=5)
         axes[i].plot(y[i, 3, 1] - 1, y[i, 3, 0] - 1, marker='o', color='b', markersize=5)
+    
+    if save_path is not None:        
+        fig.savefig(save_path + 'test.png')
+    else:
+        fig.show()
+    
 
-    fig.show()
+    
 
 def visualize_LVOT(batch):
     fig = plt.figure()
