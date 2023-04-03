@@ -1,12 +1,11 @@
 from torchvision import transforms
-from src.core.datasets import LVIDLandmark, LVOTLandmark
+from src.core.datasets import LVIDLandmark
 from src.utils.util import normalization_params
 from copy import deepcopy
 
 
 DATASETS = {
-    'lvidlandmark': LVIDLandmark,
-    'lvotlandmark': LVOTLandmark
+    'lvidlandmark': LVIDLandmark,    
 }
 
 
