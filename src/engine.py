@@ -117,20 +117,18 @@ class Engine(BaseEngine):
         # Build the loss meter
         self.loss_meter = meter_builder.build(self.logger)
 
-
         # Build the evaluator
         self.evaluators = evaluator_builder.build(
             config = self.eval_config, logger = self.logger) 
 
+        # Build the checkpointer
         self.checkpointer = checkpointer_builder.build(
             self.save_dir, self.logger, self.model, self.optimizer,
-            self.scheduler, self.eval_config['standard'], self.eval_config['best_mode'])
-        checkpoint_path = self.model_config.get('checkpoint_path', '')
+            self.scheduler, self.eval_config['standard'], self.eval_config['best_mode'])        
+        
         # Load the checkpoint
-        self.misc = self.checkpointer.load(
-            mode, checkpoint_path, use_latest=False)  
-            
-                 
+        checkpoint_path = self.model_config.get('checkpoint_path', '')
+        self.misc = self.checkpointer.load(mode, checkpoint_path, use_latest=False)                               
 
 
     def run(self):
@@ -169,10 +167,11 @@ class Engine(BaseEngine):
             # step lr scheduler with the sum of landmark width errors
             # if self.train_config['lr_schedule']['name'] == 'reduce_lr_on_plateau':
             #     self.scheduler.step(self.evaluators["landmarkcoorderror"].get_sum_of_width_MAE())
-            self.checkpointer.save(epoch,
-                                   num_steps,
-                                   self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
-                                   best_mode='min')
+            
+            # self.checkpointer.save(epoch,
+            #                        num_steps,
+            #                        self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
+            #                        best_mode='min')
             
             self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/valid')            
             self.log_summary("Validation", epoch, validation_time)
