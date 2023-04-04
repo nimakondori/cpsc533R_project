@@ -32,10 +32,9 @@ model:
 
 
 eval:  
-  standards: ["mse"]  
+  standards: ["mse", "landmarkcoorderror"]  
   standard: "mse"  
-  best_mode: "min" # min or max
-  minimize: False
+  minimize: True
 
 data: 
   - dataset:

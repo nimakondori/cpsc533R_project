@@ -1,6 +1,6 @@
 train: 
   seed: 200
-  batch_size: 50  
+  batch_size: 5
   num_epochs: 200  
   num_workers: 0
   use_wandb: False
@@ -44,16 +44,15 @@ model:
   emb_dropout: 0.1
 
 eval:  
-  standards: ["mse"]  
+  standards: ["mse", landmarkcoorderror"]  
   standard: "mse"  
-  best_mode: "min" # min or max
   minimize: False
 
 data: 
   - dataset:
       name: lvidlandmark
       data_dir: '/mnt/data/LV_PLAX2_cleaned/Cleaned'
-      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered_short.csv'
+      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered.csv'
       transform: 
         image_size: 224
         crop_size: 28
