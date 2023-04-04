@@ -177,13 +177,13 @@ class Engine(BaseEngine):
             self.log_summary("Validation", epoch, validation_time)
 
     def _train_one_epoch(self, epoch, num_steps, checkpoint_step):                
-        lvid_dataloader = self.dataloaders['lvidlandmark']['train']                
+        dataloader = self.dataloaders['lvidlandmark']['train']                
         self.model.train()        
-        epoch_steps = 1
-        lvid_iter = iter(lvid_dataloader)        
+        epoch_steps = iter(dataloader)
+        data_iter = iter(dataloader)              
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:                        
-            data_batch = next(lvid_iter)                        
+            data_batch = next(data_iter)                        
             data_batch = self.set_device(data_batch, self.device)        
             landmark_preds = self.model(data_batch["x"])                                
             losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                        
