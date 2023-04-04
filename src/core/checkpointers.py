@@ -30,27 +30,25 @@ class CustomCheckpointer(object):
             self.last_eval_metric = numpy.Inf
 
     def save(self, epoch, num_steps, eval_metric=None, best_mode='max'):
-        model_params = {'epoch': epoch, 'num_steps': num_steps}
+        checkpoint_dict = {'epoch': epoch, 'num_steps': num_steps}
 
         if torch.cuda.device_count() > 1:
-            model_params['embedder_state_dict'] = self.model['embedder'].module.state_dict()
-            model_params['landmark_state_dict'] = self.model['landmark'].module.state_dict()
+            checkpoint_dict['model_state_dict'] = self.model.module.state_dict()            
         else:
-            model_params['embedder_state_dict'] = self.model['embedder'].state_dict()
-            model_params['landmark_state_dict'] = self.model['landmark'].state_dict()
+            checkpoint_dict['model_state_dict'] = self.model.state_dict()            
 
-        model_params['optimizer_state_dict'] = self.optimizer.state_dict()
+        checkpoint_dict['optimizer_state_dict'] = self.optimizer.state_dict()
 
         # Save the given checkpoint in train time and last/best checkpoints in eval time.
         if eval_metric is None:
             checkpoint_path = os.path.join(
                 self.checkpoint_dir, 'checkpoint' + '_' + str(epoch) + '_' + str(num_steps) + '.pth')
-            torch.save(model_params, checkpoint_path)
+            torch.save(checkpoint_dict, checkpoint_path)
         else:
             # Save the last checkpoint
             self.last_eval_metric = eval_metric
             last_checkpoint_path = os.path.join(self.checkpoint_dir, 'checkpoint_last.pth')
-            torch.save(model_params, last_checkpoint_path)
+            torch.save(checkpoint_dict, last_checkpoint_path)
 
             # Update the last checkpoint path
             self._record_last_checkpoint_path()
@@ -63,7 +61,7 @@ class CustomCheckpointer(object):
             self.best_eval_metric = eval_metric
 
             best_checkpoint_path = os.path.join(self.checkpoint_dir, 'checkpoint_best.pth')
-            torch.save(model_params, best_checkpoint_path)
+            torch.save(checkpoint_dict, best_checkpoint_path)
 
             # Update the checkpoint record
             best_checkpoint_info = {'epoch': epoch, 'num_steps': num_steps}
@@ -91,11 +89,7 @@ class CustomCheckpointer(object):
         self.logger.info("Loading checkpoint from {}".format(checkpoint_path))
         checkpoint_dict = self._load_checkpoint(checkpoint_path)
 
-        self.model['embedder'].load_state_dict(
-            checkpoint_dict.pop('embedder_state_dict'), strict=True)
-
-        self.model['landmark'].load_state_dict(
-            checkpoint_dict.pop('landmark_state_dict'), strict=True)
+        self.model.load_state_dict(checkpoint_dict.pop('model_state_dict'), strict=True)        
 
         if 'optimizer_state_dict' in checkpoint_dict and self.optimizer:
             self.logger.info("Loading optimizer from {}".format(checkpoint_path))
@@ -139,11 +133,10 @@ class CustomCheckpointer(object):
     @staticmethod
     def _load_checkpoint(checkpoint_path):
         checkpoint_dict = torch.load(checkpoint_path)
-        if torch.cuda.device_count() > 1:
-            for model_name in ['landmark', 'embedder']:
-                checkpoint = checkpoint_dict[model_name + '_state_dict']
-                checkpoint = OrderedDict([('module.'+ k, v) for k, v in checkpoint.items()])
-                checkpoint_dict[model_name + '_state_dict'] = checkpoint
+        if torch.cuda.device_count() > 1:            
+            checkpoint = checkpoint_dict['model_state_dict']
+            checkpoint = OrderedDict([('module.'+ k, v) for k, v in checkpoint.items()])
+            checkpoint_dict['model_state_dict'] = checkpoint
 
         checkpoint_dict['checkpoint_path'] = checkpoint_path
         return checkpoint_dict
