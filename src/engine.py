@@ -91,8 +91,8 @@ class Engine(BaseEngine):
             config = self.model_config, logger = self.logger)
                 
         # Use multi GPUs if available
-        # if torch.cuda.device_count() > 1:
-        #     self.model = torch.nn.DataParallel(self.model)
+        if torch.cuda.device_count() > 1:
+            self.model = torch.nn.DataParallel(self.model)
 
         # Update the model devices        
         self.model = self.model.to(self.device)
@@ -128,7 +128,7 @@ class Engine(BaseEngine):
         
         # Load the checkpoint
         checkpoint_path = self.model_config.get('checkpoint_path', '')
-        self.misc = self.checkpointer.load(mode, checkpoint_path, use_latest=False)                               
+        self.misc = self.checkpointer.load(mode, checkpoint_path, use_latest=False)                                       
 
 
     def run(self):
@@ -167,7 +167,7 @@ class Engine(BaseEngine):
             # step lr scheduler with the sum of landmark width errors
             # if self.train_config['lr_schedule']['name'] == 'reduce_lr_on_plateau':
             #     self.scheduler.step(self.evaluators["landmarkcoorderror"].get_sum_of_width_MAE())
-            
+
             # self.checkpointer.save(epoch,
             #                        num_steps,
             #                        self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
