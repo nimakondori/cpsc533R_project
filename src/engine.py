@@ -172,6 +172,8 @@ class Engine(BaseEngine):
             #                        num_steps,
             #                        self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
             #                        best_mode='min')
+            if epoch % 10 == 0:
+                self.checkpointer.save(epoch, num_steps)
             
             self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/valid')            
             self.log_summary("Validation", epoch, validation_time)
@@ -206,9 +208,7 @@ class Engine(BaseEngine):
                     step = (epoch*epoch_steps + i)*batch_size
                     self.log_wandb(losses, {"step":step}, mode='batch_train')
                 
-                num_steps += batch_size
-                if num_steps % checkpoint_step == 0:
-                    self.checkpointer.save(epoch, num_steps)
+                num_steps += batch_size                                    
 
         torch.cuda.empty_cache()
         return num_steps
