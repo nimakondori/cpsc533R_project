@@ -3,7 +3,7 @@ train:
   batch_size: 16  
   num_epochs: 200
   checkpoint_step: 1000
-  num_workers: 0
+  num_workers: 8
   use_wandb: False
   wand_project_name: multi_transformer
   wandb_mode: online
@@ -29,7 +29,7 @@ train:
 
 model:
   name: vit
-  checkpoint_path: "/workspace/cpsc533R_project/saved_files/debug_run/checkpoint_0_16.pth"
+  checkpoint_path: "" #/workspace/cpsc533R_project/saved_files/debug_run/checkpoint_0_16.pth"
   image_size: 224
   n_channels: 1
   patch_size: 7
@@ -53,7 +53,7 @@ data:
   - dataset:
       name: lvidlandmark
       data_dir: '/mnt/data/LV_PLAX2_cleaned/Cleaned'
-      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered_short.csv'
+      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered.csv'
       transform: 
         image_size: 224
         crop_size: 28
