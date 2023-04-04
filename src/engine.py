@@ -179,7 +179,7 @@ class Engine(BaseEngine):
     def _train_one_epoch(self, epoch, num_steps, checkpoint_step):                
         dataloader = self.dataloaders['lvidlandmark']['train']                
         self.model.train()        
-        epoch_steps = iter(dataloader)
+        epoch_steps = len(dataloader)
         data_iter = iter(dataloader)              
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:                        
