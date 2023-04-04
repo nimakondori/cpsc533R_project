@@ -47,8 +47,9 @@ class BaseEngine(object):
                 torch.cuda.device_count()))
          # Set up Wandb if required
         if config['train']['use_wandb']:
-            wandb.init(project=config['train']['wand_project_name'],
+            wandb.init(project=config['train']['wandb_project_name'],
                        name=None if config['train']['wandb_run_name'] == '' else config['train']['wandb_run_name'],
+                       entity=config['train']['wandb_entity'],
                        config=config,
                        mode=config['train']['wandb_mode'])
 
@@ -261,17 +262,7 @@ class Engine(BaseEngine):
 
                 if self.train_config['use_wandb']:
                     step = (epoch*epoch_steps + i)*batch_size
-                    self.log_wandb(losses, {"step":step}, mode='batch_valid')
-                    # plot the heatmaps                                                                                    
-                    if num_steps % self.wandb_log_steps == 0:
-                        self.log_heatmap_wandb({"step": step},
-                                               data_batch["x"],
-                                               landmark_preds,
-                                               data_batch["y"],
-                                               landmark_preds,
-                                               data_batch["pix2mm_x"],
-                                               data_batch["pix2mm_y"],
-                                               mode='batch_valid')                          
+                    self.log_wandb(losses, {"step":step}, mode='batch_valid')                        
                 
                 num_steps += batch_size
 

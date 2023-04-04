@@ -4,9 +4,10 @@ train:
   num_epochs: 200  
   num_workers: 0
   use_wandb: False
-  wand_project_name: multi_transformer
+  wandb_project_name: MultiTasking_Transformer
+  wandb_entity: rcl_stroke
   wandb_mode: online
-  wandb_run_name: "RUN NAME"
+  wandb_run_name: "debug_run"
 
   lr_schedule: 
     name: "reduce_lr_on_plateau"
