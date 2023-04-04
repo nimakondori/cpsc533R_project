@@ -143,20 +143,27 @@ def reset_evaluators(evaluators):
         evaluators[evaluator].reset()
 
 
-def visualize_LVID(batch, save_path=None):
+def visualize_LVID(image, gt_labels, pred_labels, save_path=None, file_name=None):
     fig = plt.figure()
     axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
-    x = batch["x"][0:1]
-    y = batch["y"][0:1]
+
+    image = image.detach().cpu().numpy()
+    gt_labels= gt_labels.detach().cpu().numpy()
+    pred_labels= pred_labels.detach().cpu().numpy()
+
+    x = [image, image]
+    y = [gt_labels, pred_labels]
     for i in range(len(x)):
         axes[i].imshow(x[i].squeeze().squeeze())
         axes[i].set_title(f"LVID Sample {i+1}")
-        axes[i].plot(y[i, 0, 1] - 1, y[i, 0, 0] - 1, marker='o', color='r', markersize=5)
-        axes[i].plot(y[i, 1, 1] - 1, y[i, 1, 0] - 1, marker='o', color='r', markersize=5)
-        axes[i].plot(y[i, 2, 1] - 1, y[i, 2, 0] - 1, marker='o', color='w', markersize=5)
-        axes[i].plot(y[i, 3, 1] - 1, y[i, 3, 0] - 1, marker='o', color='b', markersize=5)
+        axes[i].plot(y[i][0, 1] - 1, y[i][0, 0] - 1, marker='o', color='r', markersize=5)
+        axes[i].plot(y[i][1, 1] - 1, y[i][1, 0] - 1, marker='o', color='r', markersize=5)
+        axes[i].plot(y[i][2, 1] - 1, y[i][2, 0] - 1, marker='o', color='w', markersize=5)
+        axes[i].plot(y[i][3, 1] - 1, y[i][3, 0] - 1, marker='o', color='b', markersize=5)
+    
     
     if save_path is not None:        
-        fig.savefig(save_path + 'test.png')
+        file_name = 'sample.png' if file_name is None else file_name + '.png'
+        fig.savefig(save_path + file_name)
     else:
         fig.show()
