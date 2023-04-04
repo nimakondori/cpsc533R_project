@@ -7,7 +7,7 @@ EVALUATORS = {
     'accuracy': BinaryAccuracyEvaluator,
     'balancedaccuracy': BalancedBinaryAccuracyEvaluator,
     'landmarkcoorderror': LandmarkExpectedCoordiantesEvaluator,
-    # 'landmarkerror': LandmarkErrorEvaluator,
+    'landmarkerror': LandmarkErrorEvaluator,    
     'mse': MSEEvaluator
 }
 

@@ -18,18 +18,18 @@ def build(datasets, train_config, logger, use_data_parallel=False):
             shuffle = True if mode == 'train' else False
             drop_last = True if mode in ['train', 'val'] else False
 
-            if use_data_parallel:
-                dataloader = DataListLoader(datasets[dataset_name][mode],
-                                            batch_size=batch_size,
-                                            shuffle=shuffle,
-                                            num_workers=num_workers,
-                                            drop_last=drop_last)
-            else:
-                dataloader = DataLoader(datasets[dataset_name][mode],
-                                        batch_size=batch_size,
-                                        shuffle=shuffle,
-                                        num_workers=num_workers,
-                                        drop_last=drop_last)
+            # if use_data_parallel:
+            #     dataloader = DataListLoader(datasets[dataset_name][mode],
+            #                                 batch_size=batch_size,
+            #                                 shuffle=shuffle,
+            #                                 num_workers=num_workers,
+            #                                 drop_last=drop_last)
+            # else:
+            dataloader = DataLoader(datasets[dataset_name][mode],
+                                    batch_size=batch_size,
+                                    shuffle=shuffle,
+                                    num_workers=num_workers,
+                                    drop_last=drop_last)
             dataloaders[dataset_name][mode] = dataloader
 
     logger.info("Dataloders are created.")

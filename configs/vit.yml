@@ -1,6 +1,8 @@
 train: 
   seed: 200
-  batch_size: 3
+  batch_size: 16  
+  num_epochs: 200
+  checkpoint_step: 1000
   num_workers: 0
   use_wandb: False
   wand_project_name: multi_transformer
@@ -23,38 +25,29 @@ train:
 
   criterion:
     mae:
-      loss_weight: 1 # Coefficient in weighted loss calculation
-    # mse: 
-    #   loss_weight: 1
+      loss_weight: 1 # Coefficient in weighted loss calculation    
 
 model:
+  name: vit
   checkpoint_path: ""
-  embedder:
-    name: cnn
-    out_channels: [4]  # 4 for 224x224,   8 for 128x128
-    cnn_dropout_p: 0.1
-    pool_sizes: [1]
-    kernel_sizes: [3]
-  landmark:
-    name: umtt
-    image_size: 224
-    patch_size: 16
-    num_landmarks: 2
-    hidden_dim: 768
-    num_heads: 12
-    num_layers: 12
-    dropout: 0.1
+  image_size: 224
+  n_channels: 1
+  patch_size: 7
+  n_classes: 8
+  d_model: 256
+  n_layers: 6
+  n_heads: 8
+  d_mlp: 512
+  d_head: 32
+  pool: 'cls'
+  dropout: 0.1
+  emb_dropout: 0.1
 
-
-eval:
-  # TODO: Check the evals
-  # Report these metrics
-  standards: [ "mse"]
-  # Save checkpoints based on this metric
-  standard: "mse"
-  # Save checkpoints based on whether the metric is to be maximized or minimized
+eval:  
+  standards: ["mse"]  
+  standard: "mse"  
+  best_mode: "min" # min or max
   minimize: False
-
 
 data: 
   - dataset:
@@ -64,14 +57,3 @@ data:
       transform: 
         image_size: 224
         crop_size: 28
-
-  - dataset:
-      name: lvotlandmark
-      data_dir: '/mnt/data/PLAX_LVOT_landmarks/LVOT_cleaned'
-      metadata_dir: '/mnt/data/LVOT_Cleaned_all_short.csv'
-      heatmap_radius: 7
-      transform: 
-        image_size: 224
-        crop_size: 28
-
-

@@ -1,8 +1,9 @@
-# Define you transfomer model here
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
 from math import floor, log
+from einops import rearrange, repeat
+from einops.layers.torch import Rearrange
 
 
 class UMMT(nn.Module):
@@ -53,11 +54,6 @@ class UMMT(nn.Module):
         if data_type == 'lvid':
             x = self.lvid_mlp(x)
             x = x.view(-1, 2*self.num_landmarks, 2)
-        elif data_type == 'lvot':
-            x = self.lvot_mlp(x)
-            x = x.view(-1, self.num_landmarks, 2)
-        else:
-            raise NotImplementedError(f"data_type {data_type} must be 'lvid' or 'lvot'")
         return x
 
 # class UMMT(nn.Module):
@@ -152,250 +148,152 @@ class UMMT(nn.Module):
 #         self.enc_dec_attn = nn.MultiheadAttention(hidden_dim)
 
 
-class MLP(nn.Module):
-    """
-    Two-layer MLP network
+class CNN_Basic(nn.Module):
+    def __init__(self):
+        super(CNN_Basic, self).__init__()
+        
+        # Convolutional layers
+        self.conv1 = nn.Conv2d(1, 16, kernel_size=3, stride=1, padding=1)
+        self.conv2 = nn.Conv2d(16, 32, kernel_size=3, stride=1, padding=1)
+        self.conv3 = nn.Conv2d(32, 64, kernel_size=3, stride=1, padding=1)
+        self.conv4 = nn.Conv2d(64, 128, kernel_size=3, stride=1, padding=1)
+        self.conv5 = nn.Conv2d(128, 256, kernel_size=3, stride=1, padding=1)
+        
+        # Max pooling layer
+        self.pool = nn.MaxPool2d(kernel_size=2, stride=2, padding=0)
+        
+        # Fully connected layers
+        self.fc1 = nn.Linear(256 * 28 * 28, 512)
+        self.fc2 = nn.Linear(512, 8) # 4 output points                
+        
+    def forward(self, x):        
+        x = F.relu(self.conv1(x))
+        x = self.pool(F.relu(self.conv2(x)))
+        x = F.relu(self.conv3(x))
+        x = self.pool(F.relu(self.conv4(x)))
+        x = self.pool(F.relu(self.conv5(x)))        
+        x = x.view(-1, 256 * 28 * 28)
+        x = F.relu(self.fc1(x))
+        x = self.fc2(x)                
+        return x.view(-1, 4, 2)
+    
 
-    Attributes
-    ----------
-    fc_1: torch.nn.Module, first FC linear layer
-    fc_2: torch.nn.Module, second FC linear layer
-    bn: torch.nn.Module, batch normalization layer
-    dropout_p: float, dropout ratio
 
-    Methods
-    -------
-    forward(x): model's forward propagation
-    """
+# Simple ViT
+################################################################
 
-    def __init__(self,
-                 input_dim: int = 128,
-                 hidden_dim: int = 80,
-                 output_dim: int = 128,
-                 dropout_p: int = 0.0):
-        """
-        :param input_dim: int, dimension of input embeddings
-        :param hidden_dim: int, dimension of hidden embeddings
-        :param output_dim: int, dimension of output embeddings
-        :param dropout_p: float, dropout used in between layers
-        """
-
+class PreNorm(nn.Module):
+    def __init__(self, dim, fn):
         super().__init__()
+        self.norm = nn.LayerNorm(dim)
+        self.fn = fn
+    def forward(self, x, **kwargs):
+        return self.fn(self.norm(x), **kwargs)
 
-        # Linear layers
-        self.fc_1 = nn.Linear(in_features=input_dim, out_features=hidden_dim)
-        self.fc_2 = nn.Linear(in_features=hidden_dim, out_features=output_dim)
+class FeedForward(nn.Module):
+    def __init__(self, dim, hidden_dim, dropout=0.):
+        super().__init__()
+        self.net = nn.Sequential(
+            nn.Linear(dim, hidden_dim),
+            nn.GELU(),
+            nn.Dropout(dropout),
+            nn.Linear(hidden_dim, dim),
+            nn.Dropout(dropout)
+        )
+    def forward(self, x):
+        return self.net(x)
 
-        # Initialize batch norm
-        self.bn = nn.BatchNorm1d(hidden_dim)
-        self.bn_out = nn.BatchNorm1d(output_dim)
+class Attention(nn.Module):
+    def __init__(self, d_model, n_heads, d_head, dropout=0.):
+        super().__init__()
+        inner_dim = d_head * n_heads
+        project_out = not (n_heads == 1 and d_head == d_model)
 
-        # Dropout params
-        self.dropout_p = dropout_p
+        self.n_heads = n_heads
+        self.scale = d_head ** -0.5
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
-        """
-        Forward propagation
+        self.attend = nn.Softmax(dim=-1)
+        self.dropout = nn.Dropout(dropout)
 
-        :param x: torch.tensor, input tensor
-        :return: transformed embeddings
-        """
+        self.to_qkv = nn.Linear(d_model, inner_dim*3, bias=False)
 
-        # Two FC layers
-        x = F.relu(self.bn_out(self.fc_2(F.dropout(F.relu(self.bn(self.fc_1(x))),
-                                                   p=self.dropout_p,
-                                                   training=self.training))))
+        self.to_out = nn.Sequential(
+            nn.Linear(inner_dim, d_model),
+            nn.Dropout(dropout)
+        ) if project_out else nn.Identity()
 
+    def forward(self, x):
+        qkv = self.to_qkv(x).chunk(3, dim=-1)
+        q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.n_heads), qkv)
+
+        dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
+
+        attn = self.dropout(self.attend(dots))        
+
+        out = torch.matmul(attn, v)
+        out = rearrange(out, 'b h n d -> b n (h d)')
+        return self.to_out(out)
+
+class Transformer(nn.Module):
+    def __init__(self, d_model, n_layers, n_heads, d_head, d_mlp, dropout=0.):
+        super().__init__()
+        self.layers = nn.ModuleList([])
+        for _ in range(n_layers):
+            self.layers.append(nn.ModuleList([
+                PreNorm(d_model, Attention(d_model, n_heads, d_head, dropout=dropout)),
+                PreNorm(d_model, FeedForward(d_model, d_mlp, dropout=dropout))
+            ]))
+
+    def forward(self, x):
+        for attn, ff in self.layers:
+            x = attn(x) + x
+            x = ff(x) + x
         return x
 
-
-class CNNResBlock(nn.Module):
-    """
-    3D convolution block with residual connections
-    #TODO: Add link to code for MICCAI paper
-
-    Attributes
-    ----------
-    conv: torch.nn.Conv3d, PyTorch Conv3D model
-    bn: torch.nn.BatchNorm3d, PyTorch 3D batch normalization layer
-    pool: torch.nn.AvgPool3d, PyTorch average 3D pooling layer
-    dropout: torch.nn.Dropout3D, PyTorch 3D dropout layer
-    one_by_one_cnn: torch.nn.Conv3d, pyTorch 1*1 conv model to equalize the number of channels for residual addition
-
-    Methods
-    -------
-    forward(x): model's forward propagation
-    """
-    def __init__(self,
-                 in_channels: int,
-                 padding: int,
-                 out_channels: int = 128,
-                 kernel_size: int = 3,
-                 pool_size: int = 2,
-                 out_size: int = None,
-                 cnn_dropout_p: float = 0.0):
-        """
-        :param in_channels: int, number of input channels
-        :param padding: int, 0 padding dims
-        :param out_channels: int, number of filters to use
-        :param kernel_size: int, filter size
-        :param pool_size: int, pooling kernel size for the spatial dims (if out_size is kept as None)
-        :param out_size: int, output frame dimension for adaptive pooling
-        :param cnn_dropout_p: float, cnn dropout rate
-        """
-
+class ViT(nn.Module):
+    def __init__(self, *, image_size, n_channels, patch_size, n_classes, d_model, n_layers, n_heads, d_mlp, d_head=64, pool='cls', dropout=0., emb_dropout=0.):
         super().__init__()
+        image_height, image_width = image_size, image_size
+        patch_height, patch_width = patch_size, patch_size        
 
-        # Check if a Conv would be needed to make the channel dim the same
-        # for the residual
-        self.one_by_one_cnn = None
-        if in_channels != out_channels:
-            # noinspection PyTypeChecker
-            self.one_by_one_cnn = nn.Conv2d(in_channels=in_channels,
-                                            out_channels=out_channels,
-                                            kernel_size=1)
+        assert image_height % patch_height == 0 and image_width % patch_width == 0, 'Image dimensions must be divisible by the patch size.'
 
-        # 2D conv layer
-        self.conv = nn.Conv2d(in_channels=in_channels,
-                              out_channels=out_channels,
-                              kernel_size=kernel_size,
-                              padding=(padding, padding))
+        n_patches = (image_height // patch_height) * (image_width // patch_width)
+        d_patch = n_channels * patch_height * patch_width
 
-        # Other operations
-        self.bn = nn.BatchNorm2d(out_channels)
-        if out_size is None:
-            self.pool = nn.MaxPool2d(kernel_size=(pool_size, pool_size))
-        else:
-            self.pool = nn.AdaptiveMaxPool2d(output_size=(out_size, out_size))
-        self.activation = nn.ReLU()
-        self.dropout = nn.Dropout2d(p=cnn_dropout_p)
+        assert pool in {'cls', 'mean'}, 'pool type must be either cls (cls token) or mean (mean pooling)'
 
-    def forward(self, x: torch.tensor) -> torch.tensor:
-        """
-        Forward propagation
+        self.to_patch_embedding = nn.Sequential(
+            Rearrange('b c (h p1) (w p2) -> b (h w) (p1 p2 c)', p1=patch_height, p2=patch_width),            
+            nn.LayerNorm(d_patch),
+            nn.Linear(d_patch, d_model),
+            nn.LayerNorm(d_model),
+        )
 
-        :param x: torch.tensor, input tensor of shape N*1*64*T*H*W
-        :return: Tensor of shape N*out_channels*T*H'*W'
-        """
+        self.pos_embedding = nn.Parameter(torch.randn(1, n_patches + 1, d_model))
+        self.cls_token = nn.Parameter(torch.randn(1, 1, d_model))
+        self.dropout = nn.Dropout(emb_dropout)
 
-        # Make the number of channels equal for input and output if needed
-        if self.one_by_one_cnn is not None:
-            residual = self.one_by_one_cnn(x)
-        else:
-            residual = x
+        self.transformer = Transformer(d_model, n_layers, n_heads, d_head, d_mlp, dropout)
+        self.pool = pool        
 
-        x = self.conv(x)
-        x = self.bn(x)
-        x = x + residual
-        x = self.pool(x)
-        x = self.activation(x)
+        self.mlp_head = nn.Sequential(
+            nn.LayerNorm(d_model),
+            nn.Linear(d_model, n_classes)
+        )
 
-        return self.dropout(x)
+    def forward(self, x):        
+        x = self.to_patch_embedding(x)        
+        b, n, _ = x.shape
 
+        cls_tokens = repeat(self.cls_token, '1 1 d -> b 1 d', b = b)
+        x = torch.cat((cls_tokens, x), dim=1)
+        x += self.pos_embedding
+        x = self.dropout(x)
 
-class CNN(nn.Module):
-    """
-    3D convolution network
-    # TODO: Add link to MICCAI paper
+        x = self.transformer(x)
+        x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]        
+        x = self.mlp_head(x)
 
-    Attributes
-    ----------
-    conv: torch.nn.Sequential, the convolutional network containing residual blocks
-    output_fc: torch.nn.Sequential, the FC layer applied to the output of convolutional network
-
-    Methods
-    -------
-    forward(x): model's forward propagation
-    """
-
-    def __init__(self,
-                 out_channels: list,
-                 kernel_sizes: list = None,
-                 pool_sizes: list = None,
-                 fc_output_dim: list = None,
-                 cnn_dropout_p: float = 0.0):
-        """
-        :param out_channels: list, output channels for each layer
-        :param kernel_sizes: list, kernel sizes for each layer
-        :param pool_sizes: list, pooling kernel sizes for each layer
-        :param fc_output_dim: int, the output dimension of output FC layer (set to None for no output fc)
-        :param cnn_dropout_p: float, dropout ratio of the CNN
-        """
-
-        super().__init__()
-
-        n_conv_layers = len(out_channels)
-
-        # Default list arguments
-        if kernel_sizes is None:
-            kernel_sizes = [3]*n_conv_layers
-        if pool_sizes is None:
-            pool_sizes = [1]*n_conv_layers
-
-        # Ensure input params are list
-        if type(out_channels) is not list:
-            out_channels = [out_channels]*n_conv_layers
-        else:
-            assert len(out_channels) == n_conv_layers, 'Provide channel parameter for all layers.'
-        if type(kernel_sizes) is not list:
-            kernel_sizes = [kernel_sizes]*n_conv_layers
-        else:
-            assert len(kernel_sizes) == n_conv_layers, 'Provide kernel size parameter for all layers.'
-        if type(pool_sizes) is not list:
-            pool_sizes = [pool_sizes]*n_conv_layers
-        else:
-            assert len(pool_sizes) == n_conv_layers, 'Provide pool size parameter for all layers.'
-
-        # Compute paddings to preserve temporal dim
-        paddings = list()
-        for kernel_size in kernel_sizes:
-            paddings.append(floor((kernel_size - 1) / 2))
-
-        # Conv layers
-        convs = list()
-
-        # Add first layer
-        convs.append(nn.Sequential(CNNResBlock(in_channels=1,
-                                               padding=paddings[0],
-                                               out_channels=out_channels[0],
-                                               kernel_size=kernel_sizes[0],
-                                               pool_size=pool_sizes[0],
-                                               cnn_dropout_p=cnn_dropout_p)))
-
-        # Add subsequent layers
-        for layer_num in range(1, n_conv_layers):
-            convs.append(nn.Sequential(CNNResBlock(in_channels=out_channels[layer_num-1],
-                                                   padding=paddings[layer_num],
-                                                   out_channels=out_channels[layer_num],
-                                                   kernel_size=kernel_sizes[layer_num],
-                                                   pool_size=pool_sizes[layer_num],
-                                                   cnn_dropout_p=cnn_dropout_p)))
-        # Change to sequential
-        self.conv = nn.Sequential(*convs)
-
-        # Output linear layer
-        self.output_fc = None
-        if fc_output_dim is not None:
-            self.output_fc = nn.Sequential(nn.AdaptiveAvgPool3d((None, 1, 1)),
-                                           nn.Flatten(start_dim=2),
-                                           nn.Linear(out_channels[-1], fc_output_dim),
-                                           nn.ReLU(inplace=True))
-
-    def forward(self,
-                x):
-        """
-        Forward path of the CNN3D network
-
-        :param x: torch.tensor, input torch.tensor of image frames
-
-        :return: Vector embeddings of input images of shape (num_samples, output_dim)
-        """
-
-        # CNN layers
-        x = self.conv(x)
-
-        # FC layer
-        if self.output_fc is not None:
-            x = self.output_fc(x)
-
-        return x
+        return x.view(-1, 4, 2)
+    

@@ -1,4 +1,3 @@
-# import torch
 import logging
 import os
 import yaml
@@ -8,9 +7,6 @@ from typing import Dict, Any
 from distutils.util import strtobool
 import matplotlib.pyplot as plt
 
-
-# Logging
-# =======
 
 def load_log(name):
     def _infov(self, msg, *args, **kwargs):
@@ -46,9 +42,6 @@ def load_log(name):
     logging.Logger.infov = _infov
     return log
 
-
-# General utils
-# =============
 
 def load_config(config_path) -> dict:
     """
@@ -122,27 +115,10 @@ def updated_config() -> Dict[str, Any]:
     return config
 
 
-# Path utils
-# ==========
-
 def mkdir_p(path):
     os.makedirs(path, exist_ok=True)
     return path
 
-
-# # MultiGPU
-# # ========
-
-# class DataParallel(torch.nn.DataParallel):
-#     def __getattr__(self, name):
-#         try:
-#             return super().__getattr__(name)
-#         except AttributeError:
-#             return getattr(self.module, name)
-
-
-# Data
-# ====
 
 def normalization_params():
     mean = [0.485, 0.456, 0.406]
@@ -167,12 +143,11 @@ def reset_evaluators(evaluators):
         evaluators[evaluator].reset()
 
 
-def visualize_LVID(batch, 
-                      ):
+def visualize_LVID(batch, save_path=None):
     fig = plt.figure()
     axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
-    x = batch["x"]
-    y = batch["y"]
+    x = batch["x"][0:1]
+    y = batch["y"][0:1]
     for i in range(len(x)):
         axes[i].imshow(x[i].squeeze().squeeze())
         axes[i].set_title(f"LVID Sample {i+1}")
@@ -180,31 +155,8 @@ def visualize_LVID(batch,
         axes[i].plot(y[i, 1, 1] - 1, y[i, 1, 0] - 1, marker='o', color='r', markersize=5)
         axes[i].plot(y[i, 2, 1] - 1, y[i, 2, 0] - 1, marker='o', color='w', markersize=5)
         axes[i].plot(y[i, 3, 1] - 1, y[i, 3, 0] - 1, marker='o', color='b', markersize=5)
-
-    fig.show()
-
-def visualize_LVOT(batch, 
-                      ):
-    fig = plt.figure()
-    axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
-    x = batch["x"]
-    y = batch["y"]
-    for i in range(len(x)):
-        axes[i].imshow(x[i].squeeze())
-        axes[i].set_title(f"LVOT Sample {i+1}")
-        axes[i].plot(y[i, 0] - 1, y[i, 1] - 1, marker='o', color='r', markersize=5)
-        axes[i].plot(y[i, 2] - 1, y[i, 3] - 1, marker='o', color='r', markersize=5)
-
-    fig.show()
-
-def visualize_LVOT_gt(batch, 
-                      ):
-    fig = plt.figure()
-    axes = [fig.add_subplot(1,2,1), fig.add_subplot(1,2,2)]
-    x = batch["gt_LVOT"]
-    for i in range(len(x)):
-        axes[i].imshow(x[i].squeeze())
-        axes[i].set_title(f"LVOT Heatmap {i+1}")
-
-    fig.show()
-
+    
+    if save_path is not None:        
+        fig.savefig(save_path + 'test.png')
+    else:
+        fig.show()
