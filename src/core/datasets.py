@@ -9,6 +9,7 @@ import scipy.io as sio
 import pandas as pd
 import numpy as np
 import torch
+from time import time
 from abc import ABC
 from torch.utils.data import Dataset
 from torchvision.transforms.functional import hflip
@@ -64,8 +65,18 @@ class LVIDLandmark(Dataset, ABC):
         data = self.data_info.iloc[idx]
 
         # Unpickle the data
+        time_start = time()
         pickle_file = bz2.BZ2File(data['cleaned_path'], 'rb')
-        mat_contents = pickle.load(pickle_file)
+        # Open the file for reading
+        with bz2.BZ2File(data['cleaned_path'], 'rb') as f:
+            # Load the serialized object from the file
+            mat_contents = pickle.load(f)
+        time_end = time()
+        if self.logger is not None:
+            self.logger.info(f'Unpickling took {time_end - time_start} seconds')
+        
+        time_start = time()
+        # Extract the cine
         cine = mat_contents['resized'] # 224x224xN
 
         # Extracting the ED frame
@@ -79,9 +90,21 @@ class LVIDLandmark(Dataset, ABC):
         ed_frame = torch.tensor(ed_frame, dtype=torch.float32).unsqueeze(0) / 255  # (1, 224,224)
         ed_frame = self.transform(ed_frame).unsqueeze(0)  # (1, 1, frame_size, frame_size)
 
+        time_end = time()
+        if self.logger is not None:
+            self.logger.info(f'Preprocessing took {time_end - time_start} seconds')
+
+        time_start = time()
+    
         # Extract landmark coordinates
         coords = self.extract_coords(data, orig_size)
 
+        time_end = time()
+        if self.logger is not None:
+            self.logger.info(f'Extracting coords took {time_end - time_start} seconds')
+
+
+        time_start = time()
         if random.uniform(0, 1) <= self.flip_p and self.mode == "train":
             coords[:, 1] = self.frame_size - coords[:, 1] - 1
             ed_frame = hflip(ed_frame)
@@ -101,6 +124,11 @@ class LVIDLandmark(Dataset, ABC):
         if self.mode != 'train':  
             keys = ['db_indx', "PatientID", "StudyDate", "SIUID", "LV_Mass", "BSA", "file_name"]
             data_item.update(data[keys].to_dict())
+
+        time_end = time()
+        if self.logger is not None:
+            self.logger.info(f'Creating data_item took {time_end - time_start} seconds')
+
 
         return data_item
 

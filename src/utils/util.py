@@ -2,10 +2,12 @@ import logging
 import os
 import yaml
 import argparse
+from time import time
 from colorlog import ColoredFormatter
 from typing import Dict, Any
 from distutils.util import strtobool
 import matplotlib.pyplot as plt
+from contextlib import ContextDecorator
 
 
 def load_log(name):
@@ -167,3 +169,14 @@ def visualize_LVID(image, gt_labels, pred_labels, save_path=None, file_name=None
         fig.savefig(save_path + file_name)
     else:
         fig.show()
+
+
+class TimeProfiler(ContextDecorator):
+    def __enter__(self):
+        self.start_time = time()
+        return self
+    
+    def __exit__(self, exc_type, exc_value, traceback):
+        self.end_time = time()
+        print(f"Code block took {self.end_time - self.start_time:.6f} seconds to run.")
+        return False

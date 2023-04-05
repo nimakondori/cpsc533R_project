@@ -7,7 +7,7 @@ import matplotlib.pyplot as plt
 import os.path as osp
 
 from src.utils import util
-from src.utils.util import visualize_LVID
+from src.utils.util import TimeProfiler, visualize_LVID
 from src.builders import  dataloader_builder, dataset_builder, model_builder, optimizer_builder, \
                             scheduler_builder, criterion_builder, evaluator_builder, meter_builder, \
                             checkpointer_builder
@@ -31,7 +31,9 @@ class BaseEngine(object):
         # Seed for reproducability 
         seed = self.train_config['seed']
         self.logger.info(f"Seed is {seed}")
-        
+        self.time_profile = TimeProfiler()
+
+
         # Determine which device to use
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)  # set the manual seed for torch
@@ -188,17 +190,34 @@ class Engine(BaseEngine):
         data_iter = iter(dataloader)              
 
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
-        for i in iterator:                        
-            data_batch = next(data_iter)                        
-            data_batch = self.set_device(data_batch, self.device)        
+        for i in iterator:       
+            time_start = time.time()
+            data_batch = next(data_iter)
+            time_end = time.time()
+            if self.logger != None:
+                self.logger.infov("Time to load data: {:.6} seconds".format(time_end - time_start))                        
+            data_batch = self.set_device(data_batch, self.device) 
+            
+            time_start = time.time()
             landmark_preds = self.model(data_batch["x"])                                
+            time_end = time.time()
+            if self.logger != None:
+                self.logger.infov("Time to infere data: {:.6} seconds".format(time_end - time_start))       
+            
+            time_start = time.time()
             losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                        
             loss = sum(losses.values())            
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()
 
+            time_end = time.time()
+            if self.logger != None:
+                self.logger.infov("Time to calculate loss: {:.6} seconds".format(time_end - time_start))
+
+
             with torch.no_grad():
+                time_start = time.time()
                 batch_size = data_batch['x'].shape[0]                
                 self.loss_meter.update(loss.item(), batch_size)
 
@@ -214,7 +233,9 @@ class Engine(BaseEngine):
                     self.log_wandb(losses, {"step":step}, mode='batch_train')
                 
                 num_steps += batch_size                                    
-
+                time_end = time.time()
+                if self.logger != None:
+                    self.logger.infov("Time for no grad stuff: {:.6} seconds".format(time_end - time_start))
         torch.cuda.empty_cache()
         return num_steps
 
