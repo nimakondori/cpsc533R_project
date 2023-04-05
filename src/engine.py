@@ -13,6 +13,7 @@ from src.builders import  dataloader_builder, dataset_builder, model_builder, op
                             checkpointer_builder
 import wandb
 from tqdm import tqdm
+import cv2
 
 
 class BaseEngine(object):
@@ -386,31 +387,52 @@ class Engine(BaseEngine):
         plt.close()
 
     def get_attention_map(self, img, att_mat):
-        att_mat = [attn.squeeze() for attn in att_mat]
-        mean_attention_maps = [attn.mean(1) for attn in att_mat]
-        attn = torch.stack(mean_attention_maps, dim=0)
+        #att_mat = [attn.squeeze() for attn in att_mat]
+        mean_attention_maps = att_mat.mean(0)
+        attn = torch.FloatTensor(mean_attention_maps)#torch.stack(torch.FloatTensor(mean_attention_maps), dim=0)
+        #print(attn.shape)
         attn = torch.nn.functional.softmax(attn, dim=0)
-        print(attn.shape)
-        attn = attn.unsqueeze(1).unsqueeze(1)
-        return attn
+        attn = attn.unsqueeze(0).unsqueeze(0)
+
+        # Resize the image tensor to size (1, 1, 224, 224) using bilinear interpolation
+        resized_attn = torch.nn.functional.interpolate(attn, size=(224, 224), mode='bilinear', align_corners=False)
+        return resized_attn.squeeze(0)
 
     def plot_attention_map(self, original_img, att_map):
-        original_img = original_img.transpose(1, 2, 0)
-        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(16, 16))
+        original_img = np.transpose(original_img.cpu(), (1, 2, 0))
+        att_map = np.transpose(att_map, (1,2,0))
+        fig, (ax1, ax2, ax3) = plt.subplots(ncols=3, figsize=(16, 16))
+
         ax1.set_title('Original')
         ax2.set_title('Attention Map Last Layer')
+        ax3.set_title('Original with Attention Map')
+
         _ = ax1.imshow(original_img.cpu())
         _ = ax2.imshow(att_map)
+
+        #overlayed = original_img
+        #att_map_resized = cv2.resize(att_map, original_img.shape[:2][::-1])
+        #att_map_resized = np.repeat(np.expand_dims(att_map_resized, axis=2), 3, axis=2)
+        #_ = cv2.addWeighted(overlayed, 0.7, att_map_resized, 0.3, 0, overlayed)
+        _ = ax3.imshow(original_img)
+        _ = ax3.imshow(att_map, alpha=0.8)
+        #plt.imshow(img2, alpha=alpha)
+        #_ = ax3.imshow(overlayed)
 
         return fig
 
     def log_attention_wandb(self, img, attn):
         attn = np.stack(attn, axis=1)
-        print(attn.shape)
 
+        imgs = []
         for i in range(4):
-            maps = self.get_attention_map(img[i], attn[i])
+            maps = self.get_attention_map(img[i], attn[i][5])
             fig = self.plot_attention_map(img[i], maps)
+            imgs.append(fig)
+
+            plt.close()
+        
+        wandb.log({'Attention map': [wandb.Image(image) for image in imgs]})
         
     def set_device(self, data, device):
         if type(data) == list:
