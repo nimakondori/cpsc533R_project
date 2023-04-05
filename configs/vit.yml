@@ -45,9 +45,9 @@ model:
   emb_dropout: 0.1
 
 eval:  
-  standards: ["mse", landmarkcoorderror"]  
+  standards: ["mse", "landmarkcoorderror"]  
   standard: "mse"  
-  minimize: False
+  minimize: True
 
 data: 
   - dataset:
