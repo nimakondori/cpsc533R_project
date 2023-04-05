@@ -3,10 +3,11 @@ train:
   batch_size: 16 
   num_epochs: 200  
   num_workers: 8
-  use_wandb: False
-  wand_project_name: multi_transformer
+  use_wandb: True
+  wandb_project_name: MultiTasking_Transformer
+  wandb_entity: vctoriawu
   wandb_mode: online
-  wandb_run_name: "RUN NAME"
+  wandb_run_name: "debug_run"
 
   lr_schedule: 
     name: "reduce_lr_on_plateau"
@@ -34,7 +35,7 @@ model:
 
 
 eval:  
-  standards: ["mse"]  
+  standards: ["mse", "landmarkcoorderror"]  
   standard: "mse"  
   best_mode: "min" # min or max
   minimize: False

@@ -15,7 +15,7 @@ elif [[ "$command" == "run" ]]; then
 	
 	 docker run -it -d \
 	          --gpus device=ALL \
-     	      --name=armin_cpsc533r_project  \
+     	      --name=victoria_cpsc533r_project2  \
       	      --volume=$HOME/cpsc533R_project:/workspace/cpsc533R_project \
       	      --volume=/mnt/nas-server/workspace/mobina/LV_PLAX2_cleaned/Cleaned:/mnt/data/LV_PLAX2_cleaned/Cleaned \
       	      --volume=/mnt/nas-server/workspace/mohammadj/Datasets/Mohammadj/LVOT_LVD_Landmark/PLAX_LVOT_landmarks:/mnt/data/PLAX_LVOT_landmarks \

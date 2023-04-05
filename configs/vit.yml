@@ -29,12 +29,8 @@ train:
 
 model:
   name: vit
-<<<<<<< HEAD
-  checkpoint_path: "" #/workspace/cpsc533R_project/saved_files/debug_run/checkpoint_0_16.pth"
-=======
   # checkpoint_path: "/workspace/cpsc533R_project/saved_files/debug_run/checkpoint_0_16.pth"
   checkpoint_path: ""
->>>>>>> b76f3fefd718ffd69556ea68462a85957e7412a4
   image_size: 224
   n_channels: 1
   patch_size: 7
