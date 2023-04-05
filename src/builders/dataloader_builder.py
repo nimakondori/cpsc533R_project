@@ -1,6 +1,7 @@
 # from torch_geometric.loader import DataListLoader, DataLoader
+import os
+import platform
 from torch.utils.data import DataLoader
-
 from copy import deepcopy
 
 
@@ -9,6 +10,18 @@ def build(datasets, train_config, logger, use_data_parallel=False):
     config = deepcopy(train_config)
     batch_size = config.pop('batch_size')
     num_workers = config.pop('num_workers')
+
+
+    # check the operating system and update the number of workers
+    if platform.system() == "Windows":
+        num_workers = 0
+        logger.info(f"Identified Windows OS, Setting num_workers to {num_workers} for optimal performance.")
+    elif platform.system() == "Linux":
+        num_workers = min(8, os.cpu_count())
+        logger.info(f"Identified Linux OS, Setting num_workers to {num_workers} for optimal performance.")
+    else:
+        logger.info("Unknown operating system, keeping the config num_workers.")
+
 
     # Load datalodaers for each mode
     dataloaders = {}
