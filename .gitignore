@@ -378,3 +378,7 @@ saved_files/
 
 # idea folder
 .idea
+
+# Local files
+*__local__*
+

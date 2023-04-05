@@ -22,8 +22,7 @@ def build(config, logger):
         if standard in ['landmarkerror', 'landmarkcoorderror']:
             evaluators.update({standard: EVALUATORS[standard](logger=logger,
                                                               batch_size=batch_size,
-                                                              frame_size=frame_size,
-                                                              use_coord_graph=False)})
+                                                              frame_size=frame_size)})
         else:
             evaluators.update({standard: EVALUATORS[standard](logger=logger)})
 

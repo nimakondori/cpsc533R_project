@@ -47,8 +47,9 @@ class BaseEngine(object):
                 torch.cuda.device_count()))
          # Set up Wandb if required
         if config['train']['use_wandb']:
-            wandb.init(project=config['train']['wand_project_name'],
+            wandb.init(project=config['train']['wandb_project_name'],
                        name=None if config['train']['wandb_run_name'] == '' else config['train']['wandb_run_name'],
+                       entity=config['train']['wandb_entity'],
                        config=config,
                        mode=config['train']['wandb_mode'])
 
@@ -91,8 +92,8 @@ class Engine(BaseEngine):
             config = self.model_config, logger = self.logger)
                 
         # Use multi GPUs if available
-        # if torch.cuda.device_count() > 1:
-        #     self.model = torch.nn.DataParallel(self.model)
+        if torch.cuda.device_count() > 1:
+            self.model = torch.nn.DataParallel(self.model)
 
         # Update the model devices        
         self.model = self.model.to(self.device)
@@ -124,11 +125,12 @@ class Engine(BaseEngine):
         # Build the checkpointer
         self.checkpointer = checkpointer_builder.build(
             self.save_dir, self.logger, self.model, self.optimizer,
-            self.scheduler, self.eval_config['standard'], self.eval_config['best_mode'])        
+            self.scheduler, self.eval_config['standard'], 
+            best_mode="min" if self.eval_config["minimize"] else "max")        
         
         # Load the checkpoint
         checkpoint_path = self.model_config.get('checkpoint_path', '')
-        self.misc = self.checkpointer.load(mode, checkpoint_path, use_latest=False)                               
+        self.misc = self.checkpointer.load(mode, checkpoint_path, use_latest=False)                                       
 
 
     def run(self):
@@ -167,23 +169,27 @@ class Engine(BaseEngine):
             # step lr scheduler with the sum of landmark width errors
             # if self.train_config['lr_schedule']['name'] == 'reduce_lr_on_plateau':
             #     self.scheduler.step(self.evaluators["landmarkcoorderror"].get_sum_of_width_MAE())
-            
+
             # self.checkpointer.save(epoch,
             #                        num_steps,
             #                        self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
             #                        best_mode='min')
+            if epoch % 10 == 0:
+                self.checkpointer.save(epoch, num_steps)
             
             self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/valid')            
             self.log_summary("Validation", epoch, validation_time)
 
     def _train_one_epoch(self, epoch, num_steps, checkpoint_step):                
-        lvid_dataloader = self.dataloaders['lvidlandmark']['train']                
+        dataloader = self.dataloaders['lvidlandmark']['train']                
         self.model.train()        
-        epoch_steps = 1
-        lvid_iter = iter(lvid_dataloader)        
+
+        epoch_steps = len(dataloader)
+        data_iter = iter(dataloader)              
+
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:                        
-            data_batch = next(lvid_iter)                        
+            data_batch = next(data_iter)                        
             data_batch = self.set_device(data_batch, self.device)        
             landmark_preds = self.model(data_batch["x"])                                
             losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                        
@@ -197,7 +203,8 @@ class Engine(BaseEngine):
                 self.loss_meter.update(loss.item(), batch_size)
 
                 # update evaluators
-                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'])
+                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'], 
+                                       pix2mm_x=data_batch['pix2mm_x'], pix2mm_y=data_batch['pix2mm_y'])
 
                 # update tqdm progress bar
                 self.set_tqdm_description(iterator, 'train', epoch, loss.item())
@@ -206,9 +213,7 @@ class Engine(BaseEngine):
                     step = (epoch*epoch_steps + i)*batch_size
                     self.log_wandb(losses, {"step":step}, mode='batch_train')
                 
-                num_steps += batch_size
-                if num_steps % checkpoint_step == 0:
-                    self.checkpointer.save(epoch, num_steps)
+                num_steps += batch_size                                    
 
         torch.cuda.empty_cache()
         return num_steps
@@ -249,24 +254,15 @@ class Engine(BaseEngine):
                 self.loss_meter.update(loss.item(), batch_size)                
 
                 # update evaluators                
-                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'])
+                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'],
+                                       pix2mm_x=data_batch['pix2mm_x'], pix2mm_y=data_batch['pix2mm_y'])
 
                 # update tqdm progress bar
                 self.set_tqdm_description(iterator, 'validation', epoch, loss.item())
 
                 if self.train_config['use_wandb']:
                     step = (epoch*epoch_steps + i)*batch_size
-                    self.log_wandb(losses, {"step":step}, mode='batch_valid')
-                    # plot the heatmaps                                                                                    
-                    if num_steps % self.wandb_log_steps == 0:
-                        self.log_heatmap_wandb({"step": step},
-                                               data_batch["x"],
-                                               landmark_preds,
-                                               data_batch["y"],
-                                               landmark_preds,
-                                               data_batch["pix2mm_x"],
-                                               data_batch["pix2mm_y"],
-                                               mode='batch_valid')                          
+                    self.log_wandb(losses, {"step":step}, mode='batch_valid')                        
                 
                 num_steps += batch_size
 
@@ -290,14 +286,13 @@ class Engine(BaseEngine):
     def update_evaluators(self,
                           landmark_preds,
                           landmark_y,
-                          coord_preds=None,
-                          coord_y=None,
                           pix2mm_x=None,
                           pix2mm_y=None):
         """
         update the evaluators with predictions of the current batch. inputs are in cuda
         """
         landmark_preds, landmark_y = landmark_preds.detach().cpu(), landmark_y.detach().cpu()
+        pix2mm_x, pix2mm_y = pix2mm_x.detach().cpu(), pix2mm_y.detach().cpu()
 
         for metric in self.eval_config["standards"]:
             if metric == 'landmarkcoorderror':                
@@ -318,16 +313,16 @@ class Engine(BaseEngine):
         """
         standard_name = self.eval_config["standard"]
         standard_value = self.evaluators[standard_name].compute()
-        # errors = self.evaluators['landmarkcoorderror'].compute()
+        errors = self.evaluators['landmarkcoorderror'].compute()
         self.logger.infov(f'{mode} [Epoch {epoch}] with lr: {self.optimizer.param_groups[0]["lr"]:.7} '
                           f'completed in {str(timedelta(seconds=time)):.7} - '
                           f'loss: {self.loss_meter.avg:.4f} - '
-                          f'{standard_name}: {standard_value:.2%} - ')
-                        #   'errors [IVS, LVID_TOP, LVID_BOT, LVPW] ='
-                        #   "[{ivs:.4f}, {lvid_top:.4f}, {lvid_bot:.4f}, {lvpw:.4f}] | "
-                        #   "[IVS, LVID, LVPW]: "
-                        #   "_MAE_[{ivs_w:.4f}, {lvid_w:.4f}, {lvpw_w:.4f}] "
-                        #   "_MPE_[{ivs_mpe:.4f}, {lvid_mpe:.4f}, {lvpw_mpe:.4f}]" .format(**errors))
+                          f'{standard_name}: {standard_value:.2f} - ' # TODO: Investigate why this was returing :.2% instead of :.2f
+                          f'errors [IVS, LVID_TOP, LVID_BOT, LVPW] ='
+                          "[{ivs:.4f}, {lvid_top:.4f}, {lvid_bot:.4f}, {lvpw:.4f}] | "
+                          "[IVS, LVID, LVPW]: "
+                          "_MAE_[{ivs_w:.4f}, {lvid_w:.4f}, {lvpw_w:.4f}] "
+                          "_MPE_[{ivs_mpe:.4f}, {lvid_mpe:.4f}, {lvpw_mpe:.4f}]" .format(**errors))
 
     def log_wandb(self, losses, step_metric, mode='batch_train'):
 
@@ -404,8 +399,8 @@ class Engine(BaseEngine):
         """
 
         losses = dict()        
-        landmark_preds = landmark_preds.view(self.train_config['batch_size'], -1, 2*self.num_output_channels)
-        landmark_y = landmark_y.view(self.train_config['batch_size'], -1, 2*self.num_output_channels)        
+        # compute loss 
+        # shape (b, num_landmarks, 2)      
         for criterion_name in self.criterion.keys():
             losses[criterion_name] = self.criterion[criterion_name].compute(landmark_preds, landmark_y)
 

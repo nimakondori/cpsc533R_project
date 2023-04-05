@@ -131,7 +131,7 @@ class CustomCheckpointer(object):
             f.write(str(best_checkpoint_info))
 
     @staticmethod
-    def _load_checkpoint(checkpoint_path):
+    def _load_checkpoint(checkpoint_path):        
         checkpoint_dict = torch.load(checkpoint_path)
         if torch.cuda.device_count() > 1:            
             checkpoint = checkpoint_dict['model_state_dict']
