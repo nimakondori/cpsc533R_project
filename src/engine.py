@@ -92,8 +92,8 @@ class Engine(BaseEngine):
             config = self.model_config, logger = self.logger)
                 
         # Use multi GPUs if available
-        if torch.cuda.device_count() > 1:
-            self.model = torch.nn.DataParallel(self.model)
+        #if torch.cuda.device_count() > 1:
+        #    self.model = torch.nn.DataParallel(self.model)
 
         # Update the model devices        
         self.model = self.model.to(self.device)
@@ -191,9 +191,10 @@ class Engine(BaseEngine):
         for i in iterator:                        
             data_batch = next(data_iter)                        
             data_batch = self.set_device(data_batch, self.device)        
-            landmark_preds = self.model(data_batch["x"])                                
-            losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                        
-            loss = sum(losses.values())            
+            landmark_preds = self.model(data_batch["x"], data_batch['keypoints'])                                
+            losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                       
+            loss = sum(losses.values()) 
+            loss.requires_grad_()           
             self.optimizer.zero_grad()
             loss.backward()
             self.optimizer.step()

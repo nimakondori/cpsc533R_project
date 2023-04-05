@@ -15,7 +15,7 @@ from torchvision.transforms.functional import hflip
 
 import sys
 sys.path.append('external/cpsc-AutoLink-Self-supervised-Learning-of-Human-Skeletons-and-Object-Outlines-by-Linking-Keypoints')
-from gen_detection import return_keypoints
+from gen_detection import ViTAutolink
 
 
 NUM_PREFETCH = 10
@@ -63,8 +63,11 @@ class LVIDLandmark(Dataset, ABC):
         self.flip_p = flip_p
         self.frame_size = frame_size
 
+        # Autolink model
+        self.autolink = ViTAutolink()
+
     def get_keypoints(self, frame):
-        kp = return_keypoints(frame)
+        kp = self.autolink.return_keypoints(frame)
         
         return kp
 

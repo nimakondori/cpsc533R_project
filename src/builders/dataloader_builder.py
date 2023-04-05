@@ -17,7 +17,7 @@ def build(datasets, train_config, logger, use_data_parallel=False):
         num_workers = 0
         logger.info(f"Identified Windows OS, Setting num_workers to {num_workers} for optimal performance.")
     elif platform.system() == "Linux":
-        num_workers = min(0, os.cpu_count())
+        num_workers = min(8, os.cpu_count())
         logger.info(f"Identified Linux OS, Setting num_workers to {num_workers} for optimal performance.")
     else:
         logger.info("Unknown operating system, keeping the config num_workers.")

@@ -278,11 +278,12 @@ class ViT(nn.Module):
         self.pool = pool        
 
         self.mlp_head = nn.Sequential(
-            nn.LayerNorm(d_model),
-            nn.Linear(d_model, n_classes)
+            nn.LayerNorm(d_model+16),
+            nn.Linear(d_model+16, d_model+16),
+            nn.Linear(d_model+16, n_classes)
         )
 
-    def forward(self, x):        
+    def forward(self, x, kp):        
         x = self.to_patch_embedding(x)        
         b, n, _ = x.shape
 
@@ -292,8 +293,11 @@ class ViT(nn.Module):
         x = self.dropout(x)
 
         x = self.transformer(x)
-        x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]        
-        x = self.mlp_head(x)
+        x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]     
+        kp = kp.view(kp.size(0), -1)
+
+        cat_x = torch.cat([x, kp], dim=1)
+        x = self.mlp_head(cat_x)
 
         return x.view(-1, 4, 2)
     
