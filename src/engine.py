@@ -248,7 +248,7 @@ class Engine(BaseEngine):
             data_batch = next(data_iter)
             with torch.no_grad():
                 data_batch = self.set_device(data_batch, self.device)            
-                landmark_preds= self.model(data_batch["x"])
+                landmark_preds= self.model(data_batch["x"], data_batch['keypoints'])
                 losses = self.compute_loss(landmark_preds, data_batch["y"])                
                 loss = sum(losses.values())                                
                 batch_size = data_batch['x'].shape[0]
