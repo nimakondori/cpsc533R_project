@@ -247,7 +247,7 @@ class Engine(BaseEngine):
             data_batch = next(data_iter)
             with torch.no_grad():
                 data_batch = self.set_device(data_batch, self.device)            
-                landmark_preds= self.model(data_batch["x"])
+                landmark_preds, attn_map = self.model(data_batch["x"], return_attention=True)
                 losses = self.compute_loss(landmark_preds, data_batch["y"])                
                 loss = sum(losses.values())                                
                 batch_size = data_batch['x'].shape[0]
@@ -270,11 +270,16 @@ class Engine(BaseEngine):
                 if save_output:
                     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
+                self.log_attention_wandb(data_batch['x'], attn_map)
+
         if save_output:
             # Prediction Table
             if self.train_config['use_wandb']:
                 prediction_log_table = wandb.Table(dataframe=prediction_df)
                 wandb.log({f"model_output_{data_type}_dataset": prediction_log_table})
+
+                log_attention_wandb(landmark_preds, attn_map)
+
             csv_destination = osp.join(osp.dirname(self.model_config['checkpoint_path']),
                                        f'{data_type}_' +
                                        osp.basename(self.model_config['checkpoint_path'])[:-4] +'.csv')
@@ -380,6 +385,33 @@ class Engine(BaseEngine):
                    f'{mode}/{step_name}': step_value})
         plt.close()
 
+    def get_attention_map(self, img, att_mat):
+        att_mat = [attn.squeeze() for attn in att_mat]
+        mean_attention_maps = [attn.mean(1) for attn in att_mat]
+        attn = torch.stack(mean_attention_maps, dim=0)
+        attn = torch.nn.functional.softmax(attn, dim=0)
+        print(attn.shape)
+        attn = attn.unsqueeze(1).unsqueeze(1)
+        return attn
+
+    def plot_attention_map(self, original_img, att_map):
+        original_img = original_img.transpose(1, 2, 0)
+        fig, (ax1, ax2) = plt.subplots(ncols=2, figsize=(16, 16))
+        ax1.set_title('Original')
+        ax2.set_title('Attention Map Last Layer')
+        _ = ax1.imshow(original_img.cpu())
+        _ = ax2.imshow(att_map)
+
+        return fig
+
+    def log_attention_wandb(self, img, attn):
+        attn = np.stack(attn, axis=1)
+        print(attn.shape)
+
+        for i in range(4):
+            maps = self.get_attention_map(img[i], attn[i])
+            fig = self.plot_attention_map(img[i], maps)
+        
     def set_device(self, data, device):
         if type(data) == list:
             data = [self.set_device(item, device) for item in data]

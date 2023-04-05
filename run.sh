@@ -1,7 +1,7 @@
 #!/bin/bash
 # CUDA version from the command-line argument
 
-cuda=${1:-"4"}
+cuda=${1:-"0"}
 filename=${2:-"main.py"}
 config_filename=${3:-"vit.yml"}
 save_dir=${4:-"saved_files/debug_run/"}
