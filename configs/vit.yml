@@ -3,7 +3,7 @@ train:
   batch_size: 5
   num_epochs: 200  
   num_workers: 0
-  use_wandb: True
+  use_wandb: False
   wandb_project_name: MultiTasking_Transformer
   wandb_entity: rcl_stroke
   wandb_mode: online
