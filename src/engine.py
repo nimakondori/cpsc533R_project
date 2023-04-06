@@ -13,6 +13,7 @@ from src.builders import  dataloader_builder, dataset_builder, model_builder, op
                             checkpointer_builder
 import wandb
 from tqdm import tqdm
+import cv2
 
 
 class BaseEngine(object):
@@ -47,8 +48,9 @@ class BaseEngine(object):
                 torch.cuda.device_count()))
          # Set up Wandb if required
         if config['train']['use_wandb']:
-            wandb.init(project=config['train']['wand_project_name'],
+            wandb.init(project=config['train']['wandb_project_name'],
                        name=None if config['train']['wandb_run_name'] == '' else config['train']['wandb_run_name'],
+                       entity=config['train']['wandb_entity'],
                        config=config,
                        mode=config['train']['wandb_mode'])
 
@@ -124,7 +126,8 @@ class Engine(BaseEngine):
         # Build the checkpointer
         self.checkpointer = checkpointer_builder.build(
             self.save_dir, self.logger, self.model, self.optimizer,
-            self.scheduler, self.eval_config['standard'], self.eval_config['best_mode'])        
+            self.scheduler, self.eval_config['standard'], 
+            best_mode="min" if self.eval_config["minimize"] else "max")        
         
         # Load the checkpoint
         checkpoint_path = self.model_config.get('checkpoint_path', '')
@@ -181,8 +184,10 @@ class Engine(BaseEngine):
     def _train_one_epoch(self, epoch, num_steps, checkpoint_step):                
         dataloader = self.dataloaders['lvidlandmark']['train']                
         self.model.train()        
+
         epoch_steps = len(dataloader)
         data_iter = iter(dataloader)              
+
         iterator = tqdm(range(epoch_steps), dynamic_ncols=True)
         for i in iterator:                        
             data_batch = next(data_iter)                        
@@ -199,7 +204,8 @@ class Engine(BaseEngine):
                 self.loss_meter.update(loss.item(), batch_size)
 
                 # update evaluators
-                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'])
+                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'], 
+                                       pix2mm_x=data_batch['pix2mm_x'], pix2mm_y=data_batch['pix2mm_y'])
 
                 # update tqdm progress bar
                 self.set_tqdm_description(iterator, 'train', epoch, loss.item())
@@ -242,31 +248,22 @@ class Engine(BaseEngine):
             data_batch = next(data_iter)
             with torch.no_grad():
                 data_batch = self.set_device(data_batch, self.device)            
-                landmark_preds= self.model(data_batch["x"])
+                landmark_preds, attn_map = self.model(data_batch["x"], return_attention=True)
                 losses = self.compute_loss(landmark_preds, data_batch["y"])                
                 loss = sum(losses.values())                                
                 batch_size = data_batch['x'].shape[0]
                 self.loss_meter.update(loss.item(), batch_size)                
 
                 # update evaluators                
-                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'])
+                self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'],
+                                       pix2mm_x=data_batch['pix2mm_x'], pix2mm_y=data_batch['pix2mm_y'])
 
                 # update tqdm progress bar
                 self.set_tqdm_description(iterator, 'validation', epoch, loss.item())
 
                 if self.train_config['use_wandb']:
                     step = (epoch*epoch_steps + i)*batch_size
-                    self.log_wandb(losses, {"step":step}, mode='batch_valid')
-                    # plot the heatmaps                                                                                    
-                    if num_steps % self.wandb_log_steps == 0:
-                        self.log_heatmap_wandb({"step": step},
-                                               data_batch["x"],
-                                               landmark_preds,
-                                               data_batch["y"],
-                                               landmark_preds,
-                                               data_batch["pix2mm_x"],
-                                               data_batch["pix2mm_y"],
-                                               mode='batch_valid')                          
+                    self.log_wandb(losses, {"step":step}, mode='batch_valid')                        
                 
                 num_steps += batch_size
 
@@ -274,11 +271,15 @@ class Engine(BaseEngine):
                 if save_output:
                     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
+        if self.train_config['use_wandb']:
+            self.log_attention_wandb(data_batch['x'], attn_map)
+
         if save_output:
             # Prediction Table
             if self.train_config['use_wandb']:
                 prediction_log_table = wandb.Table(dataframe=prediction_df)
                 wandb.log({f"model_output_{data_type}_dataset": prediction_log_table})
+
             csv_destination = osp.join(osp.dirname(self.model_config['checkpoint_path']),
                                        f'{data_type}_' +
                                        osp.basename(self.model_config['checkpoint_path'])[:-4] +'.csv')
@@ -290,14 +291,13 @@ class Engine(BaseEngine):
     def update_evaluators(self,
                           landmark_preds,
                           landmark_y,
-                          coord_preds=None,
-                          coord_y=None,
                           pix2mm_x=None,
                           pix2mm_y=None):
         """
         update the evaluators with predictions of the current batch. inputs are in cuda
         """
         landmark_preds, landmark_y = landmark_preds.detach().cpu(), landmark_y.detach().cpu()
+        pix2mm_x, pix2mm_y = pix2mm_x.detach().cpu(), pix2mm_y.detach().cpu()
 
         for metric in self.eval_config["standards"]:
             if metric == 'landmarkcoorderror':                
@@ -318,16 +318,16 @@ class Engine(BaseEngine):
         """
         standard_name = self.eval_config["standard"]
         standard_value = self.evaluators[standard_name].compute()
-        # errors = self.evaluators['landmarkcoorderror'].compute()
+        errors = self.evaluators['landmarkcoorderror'].compute()
         self.logger.infov(f'{mode} [Epoch {epoch}] with lr: {self.optimizer.param_groups[0]["lr"]:.7} '
                           f'completed in {str(timedelta(seconds=time)):.7} - '
                           f'loss: {self.loss_meter.avg:.4f} - '
-                          f'{standard_name}: {standard_value:.2%} - ')
-                        #   'errors [IVS, LVID_TOP, LVID_BOT, LVPW] ='
-                        #   "[{ivs:.4f}, {lvid_top:.4f}, {lvid_bot:.4f}, {lvpw:.4f}] | "
-                        #   "[IVS, LVID, LVPW]: "
-                        #   "_MAE_[{ivs_w:.4f}, {lvid_w:.4f}, {lvpw_w:.4f}] "
-                        #   "_MPE_[{ivs_mpe:.4f}, {lvid_mpe:.4f}, {lvpw_mpe:.4f}]" .format(**errors))
+                          f'{standard_name}: {standard_value:.2f} - ' # TODO: Investigate why this was returing :.2% instead of :.2f
+                          f'errors [IVS, LVID_TOP, LVID_BOT, LVPW] ='
+                          "[{ivs:.4f}, {lvid_top:.4f}, {lvid_bot:.4f}, {lvpw:.4f}] | "
+                          "[IVS, LVID, LVPW]: "
+                          "_MAE_[{ivs_w:.4f}, {lvid_w:.4f}, {lvpw_w:.4f}] "
+                          "_MPE_[{ivs_mpe:.4f}, {lvid_mpe:.4f}, {lvpw_mpe:.4f}]" .format(**errors))
 
     def log_wandb(self, losses, step_metric, mode='batch_train'):
 
@@ -385,6 +385,54 @@ class Engine(BaseEngine):
                    f'{mode}/{step_name}': step_value})
         plt.close()
 
+    def get_attention_map(self, img, att_mat):
+
+        mean_attention_maps = att_mat.mean(0)
+        attn = torch.FloatTensor(mean_attention_maps)
+        attn = torch.nn.functional.softmax(attn, dim=0)
+        attn = attn.unsqueeze(0).unsqueeze(0)
+
+        # Resize the image tensor using bilinear interpolation
+        resized_attn = torch.nn.functional.interpolate(attn, size=(224, 224), mode='bilinear', align_corners=False)
+        return resized_attn.squeeze(0)
+
+    def plot_attention_map(self, original_img, att_map, cls_weights):
+        original_img = np.transpose(original_img.cpu(), (1, 2, 0))
+        att_map = np.transpose(att_map, (1,2,0))
+        fig, (ax1, ax2, ax3) = plt.subplots(ncols=3, figsize=(16, 16))
+
+        ax1.set_title('Original')
+        ax2.set_title('Class Attention Map Last Layer')
+        ax3.set_title('Original with Class Attention Map')
+
+        _ = ax1.imshow(original_img.cpu())
+       
+
+        cls_weight_grid = torch.FloatTensor(cls_weights[1:].reshape(32, 32))
+        
+        cls_resized = torch.nn.functional.interpolate(cls_weight_grid.unsqueeze(0).unsqueeze(0), (224, 224), mode='bilinear').view(224, 224, 1)
+        _ = ax2.imshow(cls_resized)
+        _ = ax3.imshow(original_img)
+        _ = ax3.imshow(cls_resized, alpha=0.6)
+
+        return fig
+
+    def log_attention_wandb(self, img, attn):
+        attn = np.stack(attn, axis=1)
+        attn_map_last_layer = attn[:, -1, :, :, :]  # get the attention map of the last layer only
+        cls_weight_last_layer = attn_map_last_layer[:, :, 0, :]
+        cls_weight_last_layer = cls_weight_last_layer.mean(1)
+
+        imgs = []
+        for i in range(4):
+            maps = self.get_attention_map(img[i], attn[i][5])
+            fig = self.plot_attention_map(img[i], maps, cls_weight_last_layer[i])
+            imgs.append(fig)
+
+            plt.close()
+        
+        wandb.log({'Attention map': [wandb.Image(image) for image in imgs]})
+        
     def set_device(self, data, device):
         if type(data) == list:
             data = [self.set_device(item, device) for item in data]
@@ -404,8 +452,8 @@ class Engine(BaseEngine):
         """
 
         losses = dict()        
-        landmark_preds = landmark_preds.view(self.train_config['batch_size'], -1, 2*self.num_output_channels)
-        landmark_y = landmark_y.view(self.train_config['batch_size'], -1, 2*self.num_output_channels)        
+        # compute loss 
+        # shape (b, num_landmarks, 2)      
         for criterion_name in self.criterion.keys():
             losses[criterion_name] = self.criterion[criterion_name].compute(landmark_preds, landmark_y)
 
