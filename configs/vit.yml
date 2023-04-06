@@ -29,8 +29,8 @@ train:
 
 model:
   name: vit
-  # checkpoint_path: "/workspace/cpsc533R_project/saved_files/checkpoint_110_21350.pth"
-  checkpoint_path: ""
+  checkpoint_path: "/workspace/cpsc533R_project/saved_files/checkpoint_110_21350.pth"
+  # checkpoint_path: ""
   image_size: 224
   n_channels: 1
   patch_size: 7

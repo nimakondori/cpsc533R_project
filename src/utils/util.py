@@ -6,6 +6,9 @@ from colorlog import ColoredFormatter
 from typing import Dict, Any
 from distutils.util import strtobool
 import matplotlib.pyplot as plt
+import math
+import torch.nn.functional as F
+import numpy as np
 
 
 def load_log(name):
@@ -163,7 +166,41 @@ def visualize_LVID(image, gt_labels, pred_labels, save_path=None, file_name=None
     
     
     if save_path is not None:        
-        file_name = 'sample.png' if file_name is None else file_name + '.png'
+        file_name = 'image_pred.png' if file_name is None else file_name + '.png'
         fig.savefig(save_path + file_name)
     else:
         fig.show()
+
+
+def visualize_attention(images, attentions, save_path=None, file_name=None):    
+    fig = plt.figure(figsize=(20, 5), dpi= 80, facecolor='w', edgecolor='k')
+    n_subplots = images.shape[0]
+    n_patch = attentions.shape[-1] - 1
+    print(n_patch)
+    axes = fig.subplots(1, n_subplots)
+        
+    for k in range(n_subplots):                    
+        image = images[k]
+        attn = attentions[k].mean(dim=0)[0, 1:].view(math.sqrt(n_patch), math.sqrt(n_patch))        
+        print(attn.sum())
+        
+        # Resize the attention scores to match the input image size
+        attn_resized = F.interpolate(attn.unsqueeze(0).unsqueeze(0), size=image.shape[1:], mode="bilinear", align_corners=False).squeeze(0).squeeze(0)      
+        attn_norm = (attn_resized - attn_resized.min()) / (attn_resized.max() - attn_resized.min() + 1e-8)
+        attn_norm = attn_norm.detach().cpu().numpy()    
+            
+        # Overlay the attention scores on the input image using color coding
+        heatmap = plt.get_cmap("jet")(attn_norm)
+        heatmap = np.delete(heatmap, 3, 2)  # Remove alpha channel
+        overlay = heatmap * 0.5 + image.permute(1, 2, 0).numpy() * 0.5  # Blend the heatmap and the input image
+            
+        # Plot the overlayed image        
+        axes[k].imshow(overlay)        
+        
+    if save_path is not None:        
+        file_name = 'attention.png' if file_name is None else file_name + '.png'
+        fig.savefig(save_path + file_name)
+    else:
+        fig.show()
+
+

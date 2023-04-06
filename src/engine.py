@@ -192,7 +192,7 @@ class Engine(BaseEngine):
         for i in iterator:                        
             data_batch = next(data_iter)                        
             data_batch = self.set_device(data_batch, self.device)        
-            landmark_preds = self.model(data_batch["x"])                                
+            landmark_preds, attention = self.model(data_batch["x"], return_attention=True)  
             losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                        
             loss = sum(losses.values())            
             self.optimizer.zero_grad()

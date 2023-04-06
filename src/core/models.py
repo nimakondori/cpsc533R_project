@@ -1,7 +1,6 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from math import floor, log
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
 
@@ -55,97 +54,6 @@ class UMMT(nn.Module):
             x = self.lvid_mlp(x)
             x = x.view(-1, 2*self.num_landmarks, 2)
         return x
-
-# class UMMT(nn.Module):
-#     def __init__(self, input_dim, output_dim, hidden_dim, num_layers, num_heads):
-#         super(UMMT).__init__()
-
-#         self.input_dim = input_dim
-#         self.output_dim = output_dim
-#         self.hidden_dim = hidden_dim
-#         self.num_layers = num_layers
-#         self.num_heads = num_heads
-        
-#         # Encoder
-#         self.enc_embedding = nn.Linear(input_dim, hidden_dim)
-#         self.enc_positional_encoding = PositionalEncoding(hidden_dim)
-#         self.enc_layers = nn.ModuleList([
-#             EncoderLayer(hidden_dim, num_heads) for _ in range(num_layers)
-#         ])
-
-#         # Decoder
-#         self.dec_embedding = nn.Linear(output_dim, hidden_dim)
-#         self.dec_positional_encoding = PositionalEncoding(hidden_dim)
-#         self.dec_layers = nn.ModuleList([
-#             DecoderLayer(hidden_dim, num_heads) for _ in range(num_layers)
-#         ])
-#         self.dec_fc = nn.Linear(hidden_dim, output_dim)
-
-#     def forward(self, x, y):
-#         # Encoder
-#         x = self.enc_embedding(x)
-#         x = self.enc_positional_encoding(x)
-#         for layer in self.enc_layers:
-#             x = layer(x)
-
-#         # Decoder
-#         y = self.dec_embedding(y)
-#         y = self.dec_positional_encoding(y)
-#         for layer in self.dec_layers:
-#             y = layer(y, x)
-#         y = self.dec_fc(y)
-
-#         return y
-
-
-# class PositionalEncoding(nn.Module):
-#     def __init__(self, d_model, max_len=5000):
-#         super().__init__()
-
-#         pe = torch.zeros(max_len, d_model)
-#         position = torch.arange(0, max_len, dtype=torch.float).unsqueeze(1)
-#         div_term = torch.exp(torch.arange(0, d_model, 2).float() * (-log(10000.0) / d_model))
-#         pe[:, 0::2] = torch.sin(position * div_term)
-#         pe[:, 1::2] = torch.cos(position * div_term)
-#         pe = pe.unsqueeze(0)
-#         self.register_buffer('pe', pe)
-
-#     def forward(self, x):
-#         x = x + self.pe[:, :x.size(1)]
-#         return x
-
-
-# class EncoderLayer(nn.Module):
-#     def __init__(self, hidden_dim, num_heads):
-#         super().__init__()
-
-#         self.self_attn = nn.MultiheadAttention(hidden_dim, num_heads)
-#         self.feed_forward = nn.Sequential(
-#             nn.Linear(hidden_dim, hidden_dim * 4),
-#             nn.ReLU(),
-#             nn.Linear(hidden_dim * 4, hidden_dim)
-#         )
-#         self.norm1 = nn.LayerNorm(hidden_dim)
-#         self.norm2 = nn.LayerNorm(hidden_dim)
-
-#     def forward(self, x):
-#         x = x.permute(1, 0, 2)
-#         x, _ = self.self_attn(x, x, x)
-#         x = x.permute(1, 0, 2)
-#         x = self.norm1(x) + x
-#         x = x.permute(1, 0, 2)
-#         x = self.feed_forward(x)
-#         x = x.permute(1, 0, 2)
-#         x = self.norm2(x) + x
-#         return x
-
-
-# class DecoderLayer(nn.Module):
-#     def __init__(self, hidden_dim, num_heads):
-#         super().__init__()
-
-#         self.self_attn = nn.MultiheadAttention(hidden_dim, num_heads)
-#         self.enc_dec_attn = nn.MultiheadAttention(hidden_dim)
 
 
 class CNN_Basic(nn.Module):
