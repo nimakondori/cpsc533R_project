@@ -53,7 +53,7 @@ data:
   - dataset:
       name: lvidlandmark
       data_dir: '/mnt/data/LV_PLAX2_cleaned/Cleaned'
-      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered_short.csv'
+      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered.csv'
       transform: 
         image_size: 224
         crop_size: 28

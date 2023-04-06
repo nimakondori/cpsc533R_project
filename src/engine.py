@@ -271,15 +271,14 @@ class Engine(BaseEngine):
                 if save_output:
                     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
-                self.log_attention_wandb(data_batch['x'], attn_map)
+        if self.train_config['use_wandb']:
+            self.log_attention_wandb(data_batch['x'], attn_map)
 
         if save_output:
             # Prediction Table
             if self.train_config['use_wandb']:
                 prediction_log_table = wandb.Table(dataframe=prediction_df)
                 wandb.log({f"model_output_{data_type}_dataset": prediction_log_table})
-
-                log_attention_wandb(landmark_preds, attn_map)
 
             csv_destination = osp.join(osp.dirname(self.model_config['checkpoint_path']),
                                        f'{data_type}_' +
@@ -388,6 +387,7 @@ class Engine(BaseEngine):
 
     def get_attention_map(self, img, att_mat):
         #att_mat = [attn.squeeze() for attn in att_mat]
+
         mean_attention_maps = att_mat.mean(0)
         attn = torch.FloatTensor(mean_attention_maps)#torch.stack(torch.FloatTensor(mean_attention_maps), dim=0)
         #print(attn.shape)
@@ -398,36 +398,37 @@ class Engine(BaseEngine):
         resized_attn = torch.nn.functional.interpolate(attn, size=(224, 224), mode='bilinear', align_corners=False)
         return resized_attn.squeeze(0)
 
-    def plot_attention_map(self, original_img, att_map):
+    def plot_attention_map(self, original_img, att_map, cls_weights):
         original_img = np.transpose(original_img.cpu(), (1, 2, 0))
         att_map = np.transpose(att_map, (1,2,0))
         fig, (ax1, ax2, ax3) = plt.subplots(ncols=3, figsize=(16, 16))
 
         ax1.set_title('Original')
-        ax2.set_title('Attention Map Last Layer')
-        ax3.set_title('Original with Attention Map')
+        ax2.set_title('Class Attention Map Last Layer')
+        ax3.set_title('Original with Class Attention Map')
 
         _ = ax1.imshow(original_img.cpu())
-        _ = ax2.imshow(att_map)
+       
 
-        #overlayed = original_img
-        #att_map_resized = cv2.resize(att_map, original_img.shape[:2][::-1])
-        #att_map_resized = np.repeat(np.expand_dims(att_map_resized, axis=2), 3, axis=2)
-        #_ = cv2.addWeighted(overlayed, 0.7, att_map_resized, 0.3, 0, overlayed)
+        cls_weight_grid = torch.FloatTensor(cls_weights[1:].reshape(32, 32))
+        
+        cls_resized = torch.nn.functional.interpolate(cls_weight_grid.unsqueeze(0).unsqueeze(0), (224, 224), mode='bilinear').view(224, 224, 1)
+        _ = ax2.imshow(cls_resized)
         _ = ax3.imshow(original_img)
-        _ = ax3.imshow(att_map, alpha=0.8)
-        #plt.imshow(img2, alpha=alpha)
-        #_ = ax3.imshow(overlayed)
+        _ = ax3.imshow(cls_resized, alpha=0.8)
 
         return fig
 
     def log_attention_wandb(self, img, attn):
         attn = np.stack(attn, axis=1)
+        attn_map_last_layer = attn[:, -1, :, :, :]  # get the attention map of the last layer only
+        cls_weight_last_layer = attn_map_last_layer[:, :, 0, :]
+        cls_weight_last_layer = cls_weight_last_layer.mean(1)
 
         imgs = []
         for i in range(4):
             maps = self.get_attention_map(img[i], attn[i][5])
-            fig = self.plot_attention_map(img[i], maps)
+            fig = self.plot_attention_map(img[i], maps, cls_weight_last_layer[i])
             imgs.append(fig)
 
             plt.close()
