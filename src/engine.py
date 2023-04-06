@@ -413,7 +413,7 @@ class Engine(BaseEngine):
         cls_resized = torch.nn.functional.interpolate(cls_weight_grid.unsqueeze(0).unsqueeze(0), (224, 224), mode='bilinear').view(224, 224, 1)
         _ = ax2.imshow(cls_resized)
         _ = ax3.imshow(original_img)
-        _ = ax3.imshow(cls_resized, alpha=0.8)
+        _ = ax3.imshow(cls_resized, alpha=0.6)
 
         return fig
 
