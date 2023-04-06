@@ -386,15 +386,13 @@ class Engine(BaseEngine):
         plt.close()
 
     def get_attention_map(self, img, att_mat):
-        #att_mat = [attn.squeeze() for attn in att_mat]
 
         mean_attention_maps = att_mat.mean(0)
-        attn = torch.FloatTensor(mean_attention_maps)#torch.stack(torch.FloatTensor(mean_attention_maps), dim=0)
-        #print(attn.shape)
+        attn = torch.FloatTensor(mean_attention_maps)
         attn = torch.nn.functional.softmax(attn, dim=0)
         attn = attn.unsqueeze(0).unsqueeze(0)
 
-        # Resize the image tensor to size (1, 1, 224, 224) using bilinear interpolation
+        # Resize the image tensor using bilinear interpolation
         resized_attn = torch.nn.functional.interpolate(attn, size=(224, 224), mode='bilinear', align_corners=False)
         return resized_attn.squeeze(0)
 
