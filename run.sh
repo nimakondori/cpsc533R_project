@@ -4,11 +4,11 @@
 cuda=${1:-"0"}
 filename=${2:-"main.py"}
 config_filename=${3:-"vit.yml"}
-save_dir=${4:-"saved_files/debug_run/"}
+save_dir=${4:-"vit_baseline_vis"}
 
 export CUDA_VISIBLE_DEVICES=$cuda
 
-command="python $filename --config_path configs/$config_filename --save_dir $save_dir"
+command="python $filename --config_path configs/$config_filename --save_dir saved_files/sockeye/$save_dir"
 echo "running the following commoand" $command
 
 # Run the command

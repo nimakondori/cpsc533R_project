@@ -1,0 +1,1 @@
+running the following commoand python main.py --config_path configs/vit.yml --save_dir saved_files/sockeye/vit_baseline_vis

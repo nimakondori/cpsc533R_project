@@ -7,7 +7,7 @@ train:
   wandb_project_name: MultiTasking_Transformer
   wandb_entity: rcl_stroke
   wandb_mode: online
-  wandb_run_name: "sockeye_ViT"
+  wandb_run_name: "debug_run"
 
   lr_schedule: 
     name: "reduce_lr_on_plateau"

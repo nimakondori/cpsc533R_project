@@ -1,12 +1,13 @@
 train: 
   seed: 200
-  batch_size: 16  
+  batch_size: 40
   num_epochs: 200  
   num_workers: 0
-  use_wandb: False
-  wand_project_name: multi_transformer
+  use_wandb: True
+  wandb_project_name: MultiTasking_Transformer
+  wandb_entity: rcl_stroke
   wandb_mode: online
-  wandb_run_name: "RUN NAME"
+  wandb_run_name: "CNN_Baseline_sockeye"
 
   lr_schedule: 
     name: "reduce_lr_on_plateau"
@@ -39,8 +40,8 @@ eval:
 data: 
   - dataset:
       name: lvidlandmark
-      data_dir: '/mnt/data/LV_PLAX2_cleaned/Cleaned'
-      metadata_dir: '/mnt/data/lv_plax2_cleaned_info_landmark_gt_filtered_short.csv'
+      data_dir: '/arc/project/st-puranga-1/datasets/landmark/Cleaned_LVPLAX2/'
+      metadata_dir: '/arc/project/st-puranga-1/datasets/landmark/lv_plax2_cleaned_info_landmark_gt_filtered_es_cleaned.csv'
       transform: 
         image_size: 224
         crop_size: 28

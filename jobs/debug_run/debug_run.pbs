@@ -1,0 +1,30 @@
+#!/bin/bash
+
+#PBS -l walltime=00:10:00,select=1:ncpus=10:ompthreads=24:ngpus=1:gpu_mem=32gb:mem=30gb
+#PBS -N test_ViT_baseline
+#PBS -A st-puranga-1-gpu
+#PBS -m abe
+#PBS -M nimakondori@ece.ubc.ca
+#PBS -o output_baseline_test.txt
+#PBS -e error_baseline_test.txt
+ 
+################################################################################
+
+module load cuda
+module load gcc
+module load nccl
+module load openmpi
+module load http_proxy
+module load ffmpeg
+
+
+cd /scratch/st-puranga-1/users/nimako/workspace/repos/cpsc533R_project
+ 
+conda activate /arc/project/st-purang-1/conda_envs/nima_umt
+
+source ~/.bashrc
+
+module restore nima-torch-gpu
+
+sh run.sh
+
