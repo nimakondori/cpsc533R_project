@@ -5,9 +5,9 @@ train:
   num_workers: 8
   use_wandb: True
   wandb_project_name: MultiTasking_Transformer
-  wandb_entity: vctoriawu
+  wandb_entity: rcl_stroke
   wandb_mode: online
-  wandb_run_name: "debug_run"
+  wandb_run_name: "debug_run_pretrained"
 
   lr_schedule: 
     name: "reduce_lr_on_plateau"

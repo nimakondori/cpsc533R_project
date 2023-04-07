@@ -1,9 +1,9 @@
 #!/bin/bash
 # CUDA version from the command-line argument
 
-cuda=${1:-"4"}
+cuda=${1:-"3"}
 filename=${2:-"main.py"}
-config_filename=${3:-"vit.yml"}
+config_filename=${3:-"pretrained.yml"}
 save_dir=${4:-"saved_files/debug_run/"}
 
 export CUDA_VISIBLE_DEVICES=$cuda

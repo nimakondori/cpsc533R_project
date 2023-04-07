@@ -223,17 +223,21 @@ class Attention(nn.Module):
             nn.Dropout(dropout)
         ) if project_out else nn.Identity()
 
-    def forward(self, x):
+    def forward(self, x, return_attention=False):
         qkv = self.to_qkv(x).chunk(3, dim=-1)
         q, k, v = map(lambda t: rearrange(t, 'b n (h d) -> b h n d', h = self.n_heads), qkv)
 
         dots = torch.matmul(q, k.transpose(-1, -2)) * self.scale
 
-        attn = self.dropout(self.attend(dots))        
+        attn = self.attend(dots)
 
-        out = torch.matmul(attn, v)
+        out = torch.matmul(self.dropout(attn), v)
         out = rearrange(out, 'b h n d -> b n (h d)')
-        return self.to_out(out)
+        
+        if return_attention:
+            return self.to_out(out), attn
+        else:
+            return self.to_out(out)
 
 class Transformer(nn.Module):
     def __init__(self, d_model, n_layers, n_heads, d_head, d_mlp, dropout=0.):
@@ -245,11 +249,21 @@ class Transformer(nn.Module):
                 PreNorm(d_model, FeedForward(d_model, d_mlp, dropout=dropout))
             ]))
 
-    def forward(self, x):
+    def forward(self, x, return_attention=False):
+        attention_maps = []
+
         for attn, ff in self.layers:
-            x = attn(x) + x
+            x_n, attention = attn(x, return_attention=True)
+            x = x_n + x
             x = ff(x) + x
-        return x
+            
+            if return_attention:
+                attention_maps.append(attention.cpu())
+        
+        if return_attention:
+            return x, attention_maps
+        else:
+            return x
 
 class ViT(nn.Module):
     def __init__(self, *, image_size, n_channels, patch_size, n_classes, d_model, n_layers, n_heads, d_mlp, d_head=64, pool='cls', dropout=0., emb_dropout=0.):
@@ -283,7 +297,7 @@ class ViT(nn.Module):
             nn.Linear(d_model, n_classes)
         )
 
-    def forward(self, x):        
+    def forward(self, x, return_attention=False):        
         x = self.to_patch_embedding(x)        
         b, n, _ = x.shape
 
@@ -291,12 +305,19 @@ class ViT(nn.Module):
         x = torch.cat((cls_tokens, x), dim=1)
         x += self.pos_embedding
         x = self.dropout(x)
+        
+        if return_attention:
+            x, attention_maps = self.transformer(x, return_attention=return_attention)
+        else:
+            x = self.transformer(x)
 
-        x = self.transformer(x)
         x = x.mean(dim=1) if self.pool == 'mean' else x[:, 0]        
         x = self.mlp_head(x)
 
-        return x.view(-1, 4, 2)
+        if return_attention:
+            return x.view(-1, 4, 2), attention_maps
+        else:
+            return x.view(-1, 4, 2)
     
 class PreTrainedViT(nn.Module):
     def __init__(self, model_name, n_classes):
@@ -313,3 +334,5 @@ class PreTrainedViT(nn.Module):
         logits = self.vit(**x).logits
         
         return logits.view(-1, 4, 2)
+
+    
