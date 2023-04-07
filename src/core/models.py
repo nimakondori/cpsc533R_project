@@ -4,6 +4,7 @@ import torch.nn.functional as F
 from math import floor, log
 from einops import rearrange, repeat
 from einops.layers.torch import Rearrange
+from transformers import ViTFeatureExtractor, ViTForImageClassification
 
 
 class UMMT(nn.Module):
@@ -317,4 +318,21 @@ class ViT(nn.Module):
             return x.view(-1, 4, 2), attention_maps
         else:
             return x.view(-1, 4, 2)
+    
+class PreTrainedViT(nn.Module):
+    def __init__(self, model_name, n_classes):
+        super().__init__()
+
+        self.feature_extractor = ViTFeatureExtractor.from_pretrained(model_name, num_channels=1, do_normalize=False)
+        self.vit = ViTForImageClassification.from_pretrained(model_name, num_labels=n_classes, ignore_mismatched_sizes=True, num_channels=1)
+
+    def forward(self, x):
+        x = self.feature_extractor(x.cuda(), return_tensors='pt')
+
+        # get the logits (raw scores) for each class
+        x['pixel_values'] = x['pixel_values'].cuda()
+        logits = self.vit(**x).logits
+        
+        return logits.view(-1, 4, 2)
+
     

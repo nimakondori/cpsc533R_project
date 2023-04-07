@@ -1,4 +1,4 @@
-from src.core.models import UMMT, CNN_Basic, ViT
+from src.core.models import UMMT, CNN_Basic, ViT, PreTrainedViT
 from copy import deepcopy
 
 
@@ -6,6 +6,7 @@ MODELS = {
     'umtt': UMMT,
     'cnn_basic': CNN_Basic,
     'vit': ViT,
+    'pretrained': PreTrainedViT,
 }
 
 

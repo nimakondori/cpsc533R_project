@@ -188,7 +188,7 @@ class Engine(BaseEngine):
         for i in iterator:                        
             data_batch = next(data_iter)                        
             data_batch = self.set_device(data_batch, self.device)        
-            landmark_preds = self.model(data_batch["x"])                                
+            landmark_preds = self.model(data_batch["x"])                          
             losses = self.compute_loss(landmark_preds=landmark_preds, landmark_y=data_batch['y'])                        
             loss = sum(losses.values())            
             self.optimizer.zero_grad()
@@ -244,7 +244,7 @@ class Engine(BaseEngine):
             data_batch = next(data_iter)
             with torch.no_grad():
                 data_batch = self.set_device(data_batch, self.device)
-                if "cnn" not in self.model_config["name"]:            
+                if ("cnn" not in self.model_config["name"]) and ("pretrained" not in self.model_config["name"]):            
                     landmark_preds, attn_map = self.model(data_batch["x"], return_attention=True)
                 else:
                     landmark_preds = self.model(data_batch["x"])
@@ -271,7 +271,7 @@ class Engine(BaseEngine):
                     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
         # Don't have visualization for cnn
-        if 'cnn' not in self.model_config['name'] and self.train_config['use_wandb']:
+        if 'cnn' not in self.model_config['name'] and ("pretrained" not in self.model_config["name"]) and self.train_config['use_wandb']:
             self.log_attention_wandb(data_batch['x'], attn_map)
 
         if save_output:

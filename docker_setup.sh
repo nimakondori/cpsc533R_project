@@ -15,10 +15,9 @@ elif [[ "$command" == "run" ]]; then
 	
 	 docker run -it -d \
 	          --gpus device=ALL \
-     	      --name=victoria_cpsc533r_project3  \
+     	      --name=victoria_cpsc533r_project4  \
       	      --volume=$HOME/cpsc533R_project:/workspace/cpsc533R_project \
-      	      --volume=/mnt/nas-server/workspace/mobina/LV_PLAX2_cleaned/Cleaned:/mnt/data/LV_PLAX2_cleaned/Cleaned \
-      	      --volume=/mnt/nas-server/workspace/mohammadj/Datasets/Mohammadj/LVOT_LVD_Landmark/PLAX_LVOT_landmarks:/mnt/data/PLAX_LVOT_landmarks \
+      	      --volume=/home/nimakondori/workspace/datasets/Cleaned_LVPLAX2/:/mnt/data/LV_PLAX2_cleaned/Cleaned \
       	      $final_tag
 else
 	echo "invalid command. Use build or run"
