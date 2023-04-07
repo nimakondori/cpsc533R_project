@@ -168,6 +168,8 @@ class Engine(BaseEngine):
             # step lr scheduler with the sum of landmark width errors
             if self.train_config['lr_schedule']['name'] == 'reduce_lr_on_plateau':
                 self.scheduler.step(self.evaluators["landmarkcoorderror"].get_sum_of_width_MAE())
+            if self.train_config['lr_schedule']['name'] == 'reduce_lr_on_plateau':
+                self.scheduler.step(self.evaluators["landmarkcoorderror"].get_sum_of_width_MAE())
 
             self.checkpointer.save(epoch,
                                    num_steps,
@@ -252,11 +254,14 @@ class Engine(BaseEngine):
         for i in iterator:
             data_batch = next(data_iter)
             with torch.no_grad():
-                data_batch = self.set_device(data_batch, self.device)            
-                landmark_preds = self.model(data_batch["x"])   
+                data_batch = self.set_device(data_batch, self.device)
+                if "cnn" not in self.model_config["name"]:            
+                    landmark_preds = self.model(data_batch["x"])   
                 if isinstance(landmark_preds, list):
                     landmark_preds, y_preds = landmark_preds[0], landmark_preds[1]                             
-                    losses = self.compute_loss(landmark_preds=landmark_preds, 
+                    else:
+                    landmark_preds = self.model(data_batch["x"])
+                losses = self.compute_loss(landmark_preds=landmark_preds, 
                                             landmark_y=data_batch['y'], 
                                             y_true=data_batch["label"], 
                                             y_pred=y_preds.squeeze())        
@@ -283,8 +288,9 @@ class Engine(BaseEngine):
                 if save_output:
                     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
-        # if self.train_config['use_wandb']:
-        #     self.log_attention_wandb(data_batch['x'], attn_map)
+        # Don't have visualization for cnn
+        if 'cnn' not in self.model_config['name'] and self.train_config['use_wandb']:
+            self.log_attention_wandb(data_batch['x'], attn_map)
 
         if save_output:
             # Prediction Table
@@ -458,6 +464,7 @@ class Engine(BaseEngine):
         return data
     
     
+    def compute_loss(self, landmark_preds, landmark_y, y_pred=None, y_true=None):
     def compute_loss(self, landmark_preds, landmark_y, y_pred=None, y_true=None):
         """
         computes and sums all the loss values to be a single number, ready for backpropagation

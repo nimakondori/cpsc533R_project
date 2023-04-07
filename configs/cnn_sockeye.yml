@@ -1,15 +1,15 @@
-train: 
+train:
   seed: 200
   batch_size: 40
-  num_epochs: 200  
+  num_epochs: 200
   num_workers: 0
-  use_wandb: False
-  wandb_project_name: MultiTasking_Transformer  
+  use_wandb: True
+  wandb_project_name: MultiTasking_Transformer
   wandb_entity: rcl_stroke
   wandb_mode: online
-  wandb_run_name: "cnn_baseline"
+  wandb_run_name: "CNN_Baseline_sockeye"
 
-  lr_schedule: 
+  lr_schedule:
     name: "reduce_lr_on_plateau"
     mode: 'min'
     factor: 0.5  # Factor by which the learning rate will be reduced
@@ -18,30 +18,30 @@ train:
     min_lr: 0.000001  # 1e-6
     verbose: True
 
-  optimizer: 
+  optimizer:
     name: adam
     lr: 0.001  # 1e-3
     weight_decay: 0.0001  # 1e-4
 
   criterion:
     mae:
-      loss_weight: 1 # Coefficient in weighted loss calculation    
+      loss_weight: 1 # Coefficient in weighted loss calculation
 
 model:
   name: cnn_basic
-  checkpoint_path: ""    
+  checkpoint_path: ""
 
 
-eval:  
-  standards: ["mse", "landmarkcoorderror"]  
-  standard: "mse"  
+eval:
+  standards: ["mse", "landmarkcoorderror"]
+  standard: "mse"
   minimize: True
 
-data: 
+data:
   - dataset:
       name: lvidlandmark
       data_dir: '/arc/project/st-puranga-1/datasets/landmark/Cleaned_LVPLAX2/'
       metadata_dir: '/arc/project/st-puranga-1/datasets/landmark/lv_plax2_cleaned_info_landmark_gt_filtered_es_cleaned.csv'
-      transform: 
+      transform:
         image_size: 224
         crop_size: 28
