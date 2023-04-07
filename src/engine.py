@@ -7,13 +7,11 @@ import matplotlib.pyplot as plt
 import os.path as osp
 
 from src.utils import util
-from src.utils.util import visualize_LVID
 from src.builders import  dataloader_builder, dataset_builder, model_builder, optimizer_builder, \
                             scheduler_builder, criterion_builder, evaluator_builder, meter_builder, \
                             checkpointer_builder
 import wandb
 from tqdm import tqdm
-import cv2
 
 
 class BaseEngine(object):
@@ -168,15 +166,13 @@ class Engine(BaseEngine):
             validation_time = time.time() - train_start
 
             # step lr scheduler with the sum of landmark width errors
-            # if self.train_config['lr_schedule']['name'] == 'reduce_lr_on_plateau':
-            #     self.scheduler.step(self.evaluators["landmarkcoorderror"].get_sum_of_width_MAE())
+            if self.train_config['lr_schedule']['name'] == 'reduce_lr_on_plateau':
+                self.scheduler.step(self.evaluators["landmarkcoorderror"].get_sum_of_width_MAE())
 
-            # self.checkpointer.save(epoch,
-            #                        num_steps,
-            #                        self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
-            #                        best_mode='min')
-            if epoch % 10 == 0:
-                self.checkpointer.save(epoch, num_steps)
+            self.checkpointer.save(epoch,
+                                   num_steps,
+                                   self.evaluators["landmarkcoorderror"].get_sum_of_width_MPE(),
+                                   best_mode='min')
             
             self.log_wandb({'loss_total': self.loss_meter.avg}, {"epoch": epoch}, mode='epoch/valid')            
             self.log_summary("Validation", epoch, validation_time)
@@ -247,8 +243,11 @@ class Engine(BaseEngine):
         for i in iterator:
             data_batch = next(data_iter)
             with torch.no_grad():
-                data_batch = self.set_device(data_batch, self.device)            
-                landmark_preds, attn_map = self.model(data_batch["x"], return_attention=True)
+                data_batch = self.set_device(data_batch, self.device)
+                if "cnn" not in self.model_config["name"]:            
+                    landmark_preds, attn_map = self.model(data_batch["x"], return_attention=True)
+                else:
+                    landmark_preds = self.model(data_batch["x"])
                 losses = self.compute_loss(landmark_preds, data_batch["y"])                
                 loss = sum(losses.values())                                
                 batch_size = data_batch['x'].shape[0]
@@ -271,7 +270,8 @@ class Engine(BaseEngine):
                 if save_output:
                     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
-        if self.train_config['use_wandb']:
+        # Don't have visualization for cnn
+        if 'cnn' not in self.model_config['name'] and self.train_config['use_wandb']:
             self.log_attention_wandb(data_batch['x'], attn_map)
 
         if save_output:
@@ -446,7 +446,7 @@ class Engine(BaseEngine):
         return data
     
     
-    def compute_loss(self, landmark_preds, landmark_y):
+    def compute_loss(self, landmark_preds, landmark_y, y_pred=None, y_true=None):
         """
         computes and sums all the loss values to be a single number, ready for backpropagation
         """
@@ -456,6 +456,5 @@ class Engine(BaseEngine):
         # shape (b, num_landmarks, 2)      
         for criterion_name in self.criterion.keys():
             losses[criterion_name] = self.criterion[criterion_name].compute(landmark_preds, landmark_y)
-
         return losses
     
