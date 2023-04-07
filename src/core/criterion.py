@@ -3,6 +3,22 @@ import torch.nn as nn
 import torch
 
 
+class BCE(object):
+
+    def __init__(self, reduction,loss_weight):
+        self.criterion = nn.BCELoss(reduction=reduction)
+        self.loss_weight = loss_weight
+
+    def compute(self, pred_y, y):
+        loss = self.criterion(pred_y, y) # (Num_nodes, 4)
+        loss = self.loss_weight * (loss.mean())
+        return loss
+class BCEWithLogitLoss(BCE):
+
+    def __init__(self, reduction,loss_weight):
+        self.criterion = nn.BCEWithLogitsLoss(reduction=reduction)
+        self.loss_weight = loss_weight
+
 class WeightedBCE(object):
 
     def __init__(self, reduction, ones_weight, loss_weight):

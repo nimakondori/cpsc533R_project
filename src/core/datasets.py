@@ -64,30 +64,36 @@ class LVIDLandmark(Dataset, ABC):
         data = self.data_info.iloc[idx]
 
         # Unpickle the data
-        pickle_file = bz2.BZ2File(data['cleaned_path'], 'rb')
-        mat_contents = pickle.load(pickle_file)
+        with bz2.BZ2File(data['cleaned_path'], 'rb') as f:
+            mat_contents = pickle.load(f)
+        
         cine = mat_contents['resized'] # 224x224xN
 
         # Extracting the ED frame
-        if data['d_frame_number'] > cine.shape[-1]:
-            ed_frame = cine[:, :, -1]
+        # Coin flip to decide if we use the ED or ES frame
+        frame_choice = random.choice(['d_frame_number', 's_frame_number'])
+        frame_number = int(data[frame_choice])
+        frame_label = 1 if frame_choice == "d_frame_number" else 0
+        # TODO: Check if this assumption makes sense
+        if frame_number > cine.shape[-1]:
+            frame = cine[:, :, -1]
         else:
-            ed_frame = cine[:, :, data['d_frame_number']-1]
+            frame = cine[:, :, frame_number - 1]
 
-        # ed_frame shape = (224,224),  transform to torch tensor with shape (1,1,resized_size,resized_size)
-        orig_size = ed_frame.shape[0]
-        ed_frame = torch.tensor(ed_frame, dtype=torch.float32).unsqueeze(0) / 255  # (1, 224,224)
-        ed_frame = self.transform(ed_frame).unsqueeze(0)  # (1, 1, frame_size, frame_size)
+        # frame shape = (224,224),  transform to torch tensor with shape (1,1,resized_size,resized_size)
+        orig_size = frame.shape[0]
+        frame = torch.tensor(frame, dtype=torch.float32).unsqueeze(0) / 255  # (1, 224,224)
+        frame = self.transform(frame).unsqueeze(0)  # (1, 1, frame_size, frame_size)
 
         # Extract landmark coordinates
         coords = self.extract_coords(data, orig_size)
 
         if random.uniform(0, 1) <= self.flip_p and self.mode == "train":
             coords[:, 1] = self.frame_size - coords[:, 1] - 1
-            ed_frame = hflip(ed_frame)
+            frame = hflip(frame)
         
         # Add the echo frame to data_item
-        data_item["x"] = ed_frame.squeeze(0)
+        data_item["x"] = frame.squeeze(0)
 
         # Create labels from the coordinates
         data_item["y"] = torch.from_numpy(coords)        
@@ -97,6 +103,9 @@ class LVIDLandmark(Dataset, ABC):
         deltaX = data['DeltaX'] * orig_size / self.frame_size
         data_item["pix2mm_x"] = torch.tensor(deltaX * 10, dtype=torch.float32)  # in mm
         data_item["pix2mm_y"] = torch.tensor(deltaY * 10, dtype=torch.float32)  # in mm
+
+        # Classification label for the multi-tasking part
+        data_item["label"] = torch.tensor(frame_label, dtype=torch.float32)
 
         if self.mode != 'train':  
             keys = ['db_indx', "PatientID", "StudyDate", "SIUID", "LV_Mass", "BSA", "file_name"]
@@ -109,7 +118,7 @@ class LVIDLandmark(Dataset, ABC):
 
     def extract_coords(self, df, orig_frame_size):
 
-        # get all landmark coordinates, select the four we need
+        # get all landmark coordinates, seleYct the four we need
         LVIDd_coordinate = np.round(np.array(ast.literal_eval(df['LVID'])) * self.frame_size / orig_frame_size).astype(int)
         IVS_coordinates = np.round(np.array(ast.literal_eval(df['IVS'])) * self.frame_size / orig_frame_size).astype(int)
         LVPW_coordinates = np.round(np.array(ast.literal_eval(df['LVPW'])) * self.frame_size / orig_frame_size).astype(int)
