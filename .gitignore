@@ -382,3 +382,5 @@ saved_files/
 # Local files
 *__local__*
 
+# job_configs
+jobs/
