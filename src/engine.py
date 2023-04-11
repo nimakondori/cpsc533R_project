@@ -287,16 +287,16 @@ class Engine(BaseEngine):
         # if self.train_config['use_wandb']:
         #     self.log_attention_wandb(data_batch['x'], attn_map)
 
-        if save_output:
-            # Prediction Table
-            if self.train_config['use_wandb']:
-                prediction_log_table = wandb.Table(dataframe=prediction_df)
-                wandb.log({f"model_output_{data_type}_dataset": prediction_log_table})
+        # if save_output:
+        #     # Prediction Table
+        #     if self.train_config['use_wandb']:
+        #         prediction_log_table = wandb.Table(dataframe=prediction_df)
+        #         wandb.log({f"model_output_{data_type}_dataset": prediction_log_table})
 
-            csv_destination = osp.join(osp.dirname(self.model_config['checkpoint_path']),
-                                       f'{data_type}_' +
-                                       osp.basename(self.model_config['checkpoint_path'])[:-4] +'.csv')
-            prediction_df.to_csv(csv_destination)
+        #     csv_destination = osp.join(osp.dirname(self.model_config['checkpoint_path']),
+        #                                f'{data_type}_' +
+        #                                osp.basename(self.model_config['checkpoint_path'])[:-4] +'.csv')
+        #     prediction_df.to_csv(csv_destination)
 
         torch.cuda.empty_cache()
         return
@@ -335,16 +335,18 @@ class Engine(BaseEngine):
         """
         standard_name = self.eval_config["standard"]
         standard_value = self.evaluators[standard_name].compute()
+        accuracy = self.evaluators['accuracy'].compute()
         errors = self.evaluators['landmarkcoorderror'].compute()
         self.logger.infov(f'{mode} [Epoch {epoch}] with lr: {self.optimizer.param_groups[0]["lr"]:.7} '
                           f'completed in {str(timedelta(seconds=time)):.7} - '
                           f'loss: {self.loss_meter.avg:.4f} - '
                           f'{standard_name}: {standard_value:.2f} - ' # TODO: Investigate why this was returing :.2% instead of :.2f
+                          f'Classification Accuracy = {accuracy:.2%} - '
                           f'errors [IVS, LVID_TOP, LVID_BOT, LVPW] ='
                           "[{ivs:.4f}, {lvid_top:.4f}, {lvid_bot:.4f}, {lvpw:.4f}] | "
                           "[IVS, LVID, LVPW]: "
                           "_MAE_[{ivs_w:.4f}, {lvid_w:.4f}, {lvpw_w:.4f}] "
-                          "_MPE_[{ivs_mpe:.4f}, {lvid_mpe:.4f}, {lvpw_mpe:.4f}]" .format(**errors))
+                          "_MPE_[{ivs_mpe:.4f}, {lvid_mpe:.4f}, {lvpw_mpe:.4f}] |" .format(**errors))
 
     def log_wandb(self, losses, step_metric, mode='batch_train'):
 
