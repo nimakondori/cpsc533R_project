@@ -57,7 +57,7 @@ class UMT(nn.Module):
         x1 = x[:, 0]
         x2 = x[:, 1]
         x1 = self.transformer.head(x1)
-        x2 = self.head2(x2)
+        x2 = torch.sigmoid(self.head2(x2))
         return [x1.view(-1, 4, 2), x2] if not return_attention else [x1.view(-1, 4, 2), x2, attention_maps]
 
 class CNN_Basic(nn.Module):

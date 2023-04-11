@@ -268,7 +268,8 @@ class Engine(BaseEngine):
 
                 # update evaluators                
                 self.update_evaluators(landmark_preds=landmark_preds, landmark_y=data_batch['y'],
-                                       pix2mm_x=data_batch['pix2mm_x'], pix2mm_y=data_batch['pix2mm_y'])
+                                       pix2mm_x=data_batch['pix2mm_x'], pix2mm_y=data_batch['pix2mm_y'],
+                                       y_true=data_batch["label"].detach().cpu().numpy(), y_pred=y_preds.squeeze().detach().cpu().numpy())
 
                 # update tqdm progress bar
                 self.set_tqdm_description(iterator, 'validation', epoch, loss.item())
@@ -280,8 +281,8 @@ class Engine(BaseEngine):
                 num_steps += batch_size
 
                 # creating the prediction log table for wandb
-                if save_output:
-                    prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
+                # if save_output:
+                #     prediction_df = pd.concat([prediction_df,  self.create_prediction_df(data_batch)], axis=0)
 
         # if self.train_config['use_wandb']:
         #     self.log_attention_wandb(data_batch['x'], attn_map)
@@ -304,7 +305,9 @@ class Engine(BaseEngine):
                           landmark_preds,
                           landmark_y,
                           pix2mm_x=None,
-                          pix2mm_y=None):
+                          pix2mm_y=None,
+                          y_pred=None,
+                          y_true=None,):
         """
         update the evaluators with predictions of the current batch. inputs are in cuda
         """
@@ -314,7 +317,9 @@ class Engine(BaseEngine):
         for metric in self.eval_config["standards"]:
             if metric == 'landmarkcoorderror':                
                 self.evaluators[metric].update(landmark_preds, landmark_y, pix2mm_x, pix2mm_y)
-            else:
+            elif metric == 'accuracy':
+                self.evaluators[metric].update(y_pred, y_true)
+            else:   
                 self.evaluators[metric].update(landmark_preds, landmark_y)
 
     def set_tqdm_description(self, iterator, mode, epoch, loss):

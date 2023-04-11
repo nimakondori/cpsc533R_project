@@ -154,12 +154,12 @@ def visualize_LVID(image, gt_labels, pred_labels, save_path=None, file_name=None
     x = [image, image]
     y = [gt_labels, pred_labels]
     for i in range(len(x)):
-        axes[i].imshow(x[i].squeeze().squeeze())
+        axes[i].imshow(x[i].squeeze().squeeze(), cmap='gray')
         axes[i].set_title(f"LVID Sample {i+1}")
-        axes[i].plot(y[i][0, 1] - 1, y[i][0, 0] - 1, marker='o', color='r', markersize=5)
-        axes[i].plot(y[i][1, 1] - 1, y[i][1, 0] - 1, marker='o', color='r', markersize=5)
-        axes[i].plot(y[i][2, 1] - 1, y[i][2, 0] - 1, marker='o', color='w', markersize=5)
-        axes[i].plot(y[i][3, 1] - 1, y[i][3, 0] - 1, marker='o', color='b', markersize=5)
+        axes[i].plot(y[i][0, 1] - 1, y[i][0, 0] - 1, marker='x', color='r', markersize=10)
+        axes[i].plot(y[i][1, 1] - 1, y[i][1, 0] - 1, marker='x', color='r', markersize=10)
+        axes[i].plot(y[i][2, 1] - 1, y[i][2, 0] - 1, marker='x', color='b', markersize=10)
+        axes[i].plot(y[i][3, 1] - 1, y[i][3, 0] - 1, marker='x', color='g', markersize=10)
     
     
     if save_path is not None:        
